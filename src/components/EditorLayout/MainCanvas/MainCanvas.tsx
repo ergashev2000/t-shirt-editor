@@ -1,17 +1,23 @@
 import React, { useCallback, useRef, useEffect } from 'react'
 import { Rnd } from 'react-rnd'
-import { Lock, Unlock } from 'lucide-react'
 import { useCanvas, GRID_SIZE } from './CanvasContext'
+
+// Template konfiguratsiyasi - bu yerda chegara pozitsiyasi va o'lchamlarini o'zgartirish mumkin
+const CHEGARA = {
+  x: 194,           // Chegaraning chap tomoni (px)
+  y: 100,           // Chegaraning yuqori tomoni (px)
+  width: 210,       // Chegara kengligi (px)
+  height: 310,      // Chegara balandligi (px)
+  borderRadius: 0,  // Chegara burchak radiusi (px)
+}
 
 const MainCanvas = () => {
   const {
     elements,
     selectedElement,
     setSelectedElement,
-    selectedEl,
     isOutOfBounds,
     setIsOutOfBounds,
-    designArea,
     snapToGrid,
     undo,
     redo,
@@ -20,7 +26,6 @@ const MainCanvas = () => {
     updateElementWithHistory,
     addElement,
     bringToFront,
-    toggleLock,
     snapBackIfOutside,
     snapToGridValue,
     isPartiallyVisible
@@ -155,14 +160,14 @@ const MainCanvas = () => {
       <div
         ref={canvasRef}
         className="flex-1 relative overflow-hidden bg-white"
-        style={{ minHeight: '700px', minWidth: '700px' }}
+        style={{ minHeight: '600px', minWidth: '600px' }}
         data-canvas
         onClick={handleCanvasClick}
       >
         {/* T-shirt Template */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative">
-            <img src="./download.png" alt="" />
+            <img src="./download.png" alt="" className='w-[600px] h-[600px]' />
           </div>
         </div>
 
@@ -174,12 +179,12 @@ const MainCanvas = () => {
             : 'border-2 border-dashed border-black/30'
             }`}
           style={{
-            left: designArea.x,
-            top: designArea.y,
-            width: designArea.width,
-            height: designArea.height,
+            left: CHEGARA.x,
+            top: CHEGARA.y,
+            width: CHEGARA.width,
+            height: CHEGARA.height,
             overflow: 'hidden',
-            borderRadius: '4px'
+            borderRadius: `${CHEGARA.borderRadius}px`
           }}
         >
           {/* Grid overlay when snap is enabled */}
@@ -201,10 +206,10 @@ const MainCanvas = () => {
         <div
           className="absolute pointer-events-none"
           style={{
-            left: designArea.x,
-            top: designArea.y,
-            width: designArea.width,
-            height: designArea.height,
+            left: CHEGARA.x,
+            top: CHEGARA.y,
+            width: CHEGARA.width,
+            height: CHEGARA.height,
             overflow: 'hidden',
             zIndex: 10
           }}
@@ -216,8 +221,8 @@ const MainCanvas = () => {
                 key={`clipped-${element.id}`}
                 className="absolute pointer-events-none"
                 style={{
-                  left: element.x - designArea.x,
-                  top: element.y - designArea.y,
+                  left: element.x - CHEGARA.x,
+                  top: element.y - CHEGARA.y,
                   width: element.width,
                   height: element.height
                 }}
