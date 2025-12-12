@@ -22,14 +22,70 @@ interface HistoryState {
 
 // Design area configuration
 export const CANVAS_SIZE = 700
-export const DESIGN_AREA = {
-  x: (CANVAS_SIZE - 192) / 2,
-  y: (CANVAS_SIZE - 256) / 2,
-  width: 192,
-  height: 256
+export const GRID_SIZE = 10
+
+// Product design area configurations
+export interface DesignAreaConfig {
+  id: string
+  name: string
+  x: number
+  y: number
+  width: number
+  height: number
+  productImage: string
 }
 
-export const GRID_SIZE = 10
+// eslint-disable-next-line react-refresh/only-export-components
+export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
+  {
+    id: 'tshirt-front',
+    name: 'T-Shirt (Old\')',
+    x: (CANVAS_SIZE - 210) / 2,
+    y: (CANVAS_SIZE - 380) / 2,
+    width: 210,
+    height: 310,
+    productImage: './download.png'
+  },
+  {
+    id: 'tshirt-back',
+    name: 'T-Shirt (Orqa)',
+    x: (CANVAS_SIZE - 192) / 2,
+    y: (CANVAS_SIZE - 256) / 2,
+    width: 192,
+    height: 256,
+    productImage: './download.png'
+  },
+  {
+    id: 'hoodie-front',
+    name: 'Hoodie (Old\')',
+    x: (CANVAS_SIZE - 180) / 2,
+    y: (CANVAS_SIZE - 240) / 2,
+    width: 180,
+    height: 240,
+    productImage: './download.png'
+  },
+  {
+    id: 'hoodie-back',
+    name: 'Hoodie (Orqa)',
+    x: (CANVAS_SIZE - 200) / 2,
+    y: (CANVAS_SIZE - 280) / 2,
+    width: 200,
+    height: 280,
+    productImage: './download.png'
+  },
+  {
+    id: 'mug',
+    name: 'Krujka',
+    x: (CANVAS_SIZE - 250) / 2,
+    y: (CANVAS_SIZE - 150) / 2,
+    width: 250,
+    height: 150,
+    productImage: './download.png'
+  }
+]
+
+// Default design area (first product)
+export const DEFAULT_DESIGN_AREA = PRODUCT_DESIGN_AREAS[0]
 
 interface CanvasContextType {
   // State
@@ -46,6 +102,11 @@ interface CanvasContextType {
   setIsOutOfBounds: React.Dispatch<React.SetStateAction<boolean>>
   canUndo: boolean
   canRedo: boolean
+
+  // Design area
+  designArea: DesignAreaConfig
+  setDesignAreaById: (id: string) => void
+  productDesignAreas: DesignAreaConfig[]
 
   // Actions
   undo: () => void
@@ -89,12 +150,21 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const [isOutOfBounds, setIsOutOfBounds] = useState(false)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [designArea, setDesignArea] = useState<DesignAreaConfig>(DEFAULT_DESIGN_AREA)
 
   const historyRef = useRef<HistoryState[]>([])
   const historyIndexRef = useRef(-1)
   const isInitialized = useRef(false)
 
   const selectedEl = elements.find(el => el.id === selectedElement)
+
+  // Set design area by product id
+  const setDesignAreaById = useCallback((id: string) => {
+    const area = PRODUCT_DESIGN_AREAS.find(a => a.id === id)
+    if (area) {
+      setDesignArea(area)
+    }
+  }, [])
 
   // Update undo/redo button states
   const updateHistoryButtons = useCallback(() => {
@@ -150,28 +220,28 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const isPartiallyVisible = useCallback((x: number, y: number, width: number, height: number): boolean => {
     const elementRight = x + width
     const elementBottom = y + height
-    const areaRight = DESIGN_AREA.x + DESIGN_AREA.width
-    const areaBottom = DESIGN_AREA.y + DESIGN_AREA.height
+    const areaRight = designArea.x + designArea.width
+    const areaBottom = designArea.y + designArea.height
 
     return !(
-      elementRight < DESIGN_AREA.x ||
+      elementRight < designArea.x ||
       x > areaRight ||
-      elementBottom < DESIGN_AREA.y ||
+      elementBottom < designArea.y ||
       y > areaBottom
     )
-  }, [])
+  }, [designArea])
 
   // Snap element back if completely outside design area
   const snapBackIfOutside = useCallback((x: number, y: number, width: number, height: number) => {
     const elementRight = x + width
     const elementBottom = y + height
-    const areaRight = DESIGN_AREA.x + DESIGN_AREA.width
-    const areaBottom = DESIGN_AREA.y + DESIGN_AREA.height
+    const areaRight = designArea.x + designArea.width
+    const areaBottom = designArea.y + designArea.height
 
     const isCompletelyOutside =
-      elementRight < DESIGN_AREA.x ||
+      elementRight < designArea.x ||
       x > areaRight ||
-      elementBottom < DESIGN_AREA.y ||
+      elementBottom < designArea.y ||
       y > areaBottom
 
     if (!isCompletelyOutside) return { x, y }
@@ -179,20 +249,20 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     let newX = x
     let newY = y
 
-    if (elementRight < DESIGN_AREA.x) {
-      newX = DESIGN_AREA.x - width + 20
+    if (elementRight < designArea.x) {
+      newX = designArea.x - width + 20
     } else if (x > areaRight) {
       newX = areaRight - 20
     }
 
-    if (elementBottom < DESIGN_AREA.y) {
-      newY = DESIGN_AREA.y - height + 20
+    if (elementBottom < designArea.y) {
+      newY = designArea.y - height + 20
     } else if (y > areaBottom) {
       newY = areaBottom - 20
     }
 
     return { x: newX, y: newY }
-  }, [])
+  }, [designArea])
 
   // Snap to grid
   const snapToGridValue = useCallback((value: number): number => {
@@ -213,8 +283,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       const aspectRatio = dimensions.width / dimensions.height
       const scaledHeight = targetWidth / aspectRatio
 
-      const x = DESIGN_AREA.x + (DESIGN_AREA.width - targetWidth) / 2
-      const y = DESIGN_AREA.y + (DESIGN_AREA.height - scaledHeight) / 2
+      const x = designArea.x + (designArea.width - targetWidth) / 2
+      const y = designArea.y + (designArea.height - scaledHeight) / 2
 
       const defaultElement: CanvasElement = {
         id: '1',
@@ -279,8 +349,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     }
 
     let finalPosition = {
-      x: DESIGN_AREA.x + (DESIGN_AREA.width - width) / 2,
-      y: DESIGN_AREA.y + (DESIGN_AREA.height - height) / 2
+      x: designArea.x + (designArea.width - width) / 2,
+      y: designArea.y + (designArea.height - height) / 2
     }
 
     if (position) {
@@ -310,7 +380,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     })
     setMaxZIndex(prev => prev + 1)
     setSelectedElement(newElement.id)
-  }, [maxZIndex, getImageDimensions, snapBackIfOutside, saveToHistory])
+  }, [maxZIndex, getImageDimensions, snapBackIfOutside, saveToHistory, designArea])
 
   const bringToFront = useCallback((id: string) => {
     const newZIndex = maxZIndex + 1
@@ -321,10 +391,10 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   // Element actions that work on selected element
   const centerElement = useCallback(() => {
     if (!selectedEl) return
-    const x = DESIGN_AREA.x + (DESIGN_AREA.width - selectedEl.width) / 2
-    const y = DESIGN_AREA.y + (DESIGN_AREA.height - selectedEl.height) / 2
+    const x = designArea.x + (designArea.width - selectedEl.width) / 2
+    const y = designArea.y + (designArea.height - selectedEl.height) / 2
     updateElementWithHistory(selectedEl.id, { x, y })
-  }, [selectedEl, updateElementWithHistory])
+  }, [selectedEl, updateElementWithHistory, designArea])
 
   const flipHorizontal = useCallback(() => {
     if (!selectedEl) return
@@ -366,35 +436,35 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   // Alignment functions
   const alignLeft = useCallback(() => {
     if (!selectedEl) return
-    updateElementWithHistory(selectedEl.id, { x: DESIGN_AREA.x })
-  }, [selectedEl, updateElementWithHistory])
+    updateElementWithHistory(selectedEl.id, { x: designArea.x })
+  }, [selectedEl, updateElementWithHistory, designArea])
 
   const alignRight = useCallback(() => {
     if (!selectedEl) return
-    updateElementWithHistory(selectedEl.id, { x: DESIGN_AREA.x + DESIGN_AREA.width - selectedEl.width })
-  }, [selectedEl, updateElementWithHistory])
+    updateElementWithHistory(selectedEl.id, { x: designArea.x + designArea.width - selectedEl.width })
+  }, [selectedEl, updateElementWithHistory, designArea])
 
   const alignTop = useCallback(() => {
     if (!selectedEl) return
-    updateElementWithHistory(selectedEl.id, { y: DESIGN_AREA.y })
-  }, [selectedEl, updateElementWithHistory])
+    updateElementWithHistory(selectedEl.id, { y: designArea.y })
+  }, [selectedEl, updateElementWithHistory, designArea])
 
   const alignBottom = useCallback(() => {
     if (!selectedEl) return
-    updateElementWithHistory(selectedEl.id, { y: DESIGN_AREA.y + DESIGN_AREA.height - selectedEl.height })
-  }, [selectedEl, updateElementWithHistory])
+    updateElementWithHistory(selectedEl.id, { y: designArea.y + designArea.height - selectedEl.height })
+  }, [selectedEl, updateElementWithHistory, designArea])
 
   const alignCenterH = useCallback(() => {
     if (!selectedEl) return
-    const x = DESIGN_AREA.x + (DESIGN_AREA.width - selectedEl.width) / 2
+    const x = designArea.x + (designArea.width - selectedEl.width) / 2
     updateElementWithHistory(selectedEl.id, { x })
-  }, [selectedEl, updateElementWithHistory])
+  }, [selectedEl, updateElementWithHistory, designArea])
 
   const alignCenterV = useCallback(() => {
     if (!selectedEl) return
-    const y = DESIGN_AREA.y + (DESIGN_AREA.height - selectedEl.height) / 2
+    const y = designArea.y + (designArea.height - selectedEl.height) / 2
     updateElementWithHistory(selectedEl.id, { y })
-  }, [selectedEl, updateElementWithHistory])
+  }, [selectedEl, updateElementWithHistory, designArea])
 
   return (
     <CanvasContext.Provider value={{
@@ -433,7 +503,10 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       snapBackIfOutside,
       snapToGridValue,
       isPartiallyVisible,
-      getImageDimensions
+      getImageDimensions,
+      designArea,
+      setDesignAreaById,
+      productDesignAreas: PRODUCT_DESIGN_AREAS
     }}>
       {children}
     </CanvasContext.Provider>

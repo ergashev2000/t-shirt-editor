@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useEffect } from 'react'
 import { Rnd } from 'react-rnd'
 import { Lock, Unlock } from 'lucide-react'
 import { resizeHandleStyles } from './helpers'
-import { useCanvas, DESIGN_AREA, GRID_SIZE } from './CanvasContext'
+import { useCanvas, GRID_SIZE } from './CanvasContext'
 
 const MainCanvas = () => {
   const {
@@ -12,6 +12,7 @@ const MainCanvas = () => {
     selectedEl,
     isOutOfBounds,
     setIsOutOfBounds,
+    designArea,
     snapToGrid,
     undo,
     redo,
@@ -45,9 +46,12 @@ const MainCanvas = () => {
     const element = elements.find(el => el.id === id)
     if (!element) return
 
+    // Update element position in real-time during drag
+    updateElement(id, { x: d.x, y: d.y })
+
     const visible = isPartiallyVisible(d.x, d.y, element.width, element.height)
     setIsOutOfBounds(!visible)
-  }, [elements, isPartiallyVisible, setIsOutOfBounds])
+  }, [elements, isPartiallyVisible, setIsOutOfBounds, updateElement])
 
   // Keyboard navigation
   useEffect(() => {
@@ -171,10 +175,10 @@ const MainCanvas = () => {
             : 'border-2 border-dashed border-black/30'
             }`}
           style={{
-            left: DESIGN_AREA.x,
-            top: DESIGN_AREA.y,
-            width: DESIGN_AREA.width,
-            height: DESIGN_AREA.height,
+            left: designArea.x,
+            top: designArea.y,
+            width: designArea.width,
+            height: designArea.height,
             overflow: 'hidden',
             borderRadius: '4px'
           }}
@@ -198,10 +202,10 @@ const MainCanvas = () => {
         <div
           className="absolute pointer-events-none"
           style={{
-            left: DESIGN_AREA.x,
-            top: DESIGN_AREA.y,
-            width: DESIGN_AREA.width,
-            height: DESIGN_AREA.height,
+            left: designArea.x,
+            top: designArea.y,
+            width: designArea.width,
+            height: designArea.height,
             overflow: 'hidden',
             zIndex: 10
           }}
@@ -213,8 +217,8 @@ const MainCanvas = () => {
                 key={`clipped-${element.id}`}
                 className="absolute pointer-events-none"
                 style={{
-                  left: element.x - DESIGN_AREA.x,
-                  top: element.y - DESIGN_AREA.y,
+                  left: element.x - designArea.x,
+                  top: element.y - designArea.y,
                   width: element.width,
                   height: element.height
                 }}
