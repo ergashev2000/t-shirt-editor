@@ -1,5 +1,5 @@
 import Header from '@/components/EditorLayout/HeaderBar/HeaderBar'
-import MainCanvas from '@/components/EditorLayout/MainCanvas/MainCanvas'
+import MainCanvas from '@/components/EditorLayout/MainCanvas'
 import LeftBar from '@/components/EditorLayout/LeftBar'
 
 export default function Editor() {
@@ -7,11 +7,9 @@ export default function Editor() {
     <main className='h-screen bg-gray-100'>
       <Header />
       <div className='flex gap-2 h-[calc(100dvh-var(--header-height))] p-1'>
-        <main className='w-[calc(100%-var(--leftbar-width)-2px)] h-full rounded-lg bg-white flex gap-2'>
+        <main className='w-[calc(100%-var(--leftbar-width)-2px)] h-full rounded-lg bg-white flex'>
           <LeftBar />
-          <div>
-            <MainCanvas />
-          </div>
+          <MainCanvas />
         </main>
         <aside className='w-(--leftbar-width) h-full rounded-lg bg-white'>
 

@@ -58,6 +58,7 @@ const distributeIntoColumns = (items: PictureItem[], columnCount: number) => {
 }
 
 const ImageBar = () => {
+
   const {
     data: pictures = [],
     isLoading,
@@ -103,6 +104,10 @@ const ImageBar = () => {
                   className="h-auto max-w-full rounded-lg transition-transform group-hover:scale-105"
                   src={picture.url}
                   alt={picture.name || 'Image'}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', picture.url)
+                  }}
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder-image.jpg'
                   }}
