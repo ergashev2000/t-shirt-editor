@@ -121,3 +121,56 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Resize handle styles - default hidden */
+.resize-handle {
+  width: 10px;
+  height: 10px;
+  background: #73a2ec;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  top: 4px;
+  left: 5px;
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Show handles on hover or when selected */
+.rnd-element:hover .resize-handle,
+.rnd-element.show-handles .resize-handle {
+  opacity: 1;
+}
+
+.resize-handle:hover {
+  background: #2563eb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.resize-handle-nwse {
+  cursor: nwse-resize;
+}
+
+.resize-handle-nesw {
+  cursor: nesw-resize;
+}
+
+/* Delete button - default hidden */
+.delete-btn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* Show delete button on hover or when selected */
+.rnd-element:hover .delete-btn,
+.rnd-element.show-handles .delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+}

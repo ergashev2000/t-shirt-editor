@@ -1,15 +1,9 @@
 import React, { useCallback, useRef, useEffect } from 'react'
 import { Rnd } from 'react-rnd'
-import { useCanvas, GRID_SIZE } from './CanvasContext'
+import { useCanvas, GRID_SIZE, PRODUCT_DESIGN_AREAS } from './CanvasContext'
 
-// Template konfiguratsiyasi - bu yerda chegara pozitsiyasi va o'lchamlarini o'zgartirish mumkin
-const CHEGARA = {
-  x: 194,           // Chegaraning chap tomoni (px)
-  y: 100,           // Chegaraning yuqori tomoni (px)
-  width: 210,       // Chegara kengligi (px)
-  height: 310,      // Chegara balandligi (px)
-  borderRadius: 0,  // Chegara burchak radiusi (px)
-}
+// PRODUCT_DESIGN_AREAS dan birinchi templateni olish
+const CHEGARA = PRODUCT_DESIGN_AREAS[0]
 
 const MainCanvas = () => {
   const {
@@ -184,7 +178,7 @@ const MainCanvas = () => {
             width: CHEGARA.width,
             height: CHEGARA.height,
             overflow: 'hidden',
-            borderRadius: `${CHEGARA.borderRadius}px`
+            borderRadius: '4px'
           }}
         >
           {/* Grid overlay when snap is enabled */}
@@ -270,8 +264,8 @@ const MainCanvas = () => {
                 right: false
               } : false}
               lockAspectRatio={true}
-              className={`${selectedElement === element.id
-                ? isOutOfBounds ? 'ring-2 ring-red-500' : 'ring-2 ring-blue-500'
+              className={`rnd-element ${selectedElement === element.id
+                ? isOutOfBounds ? 'ring-2 ring-red-500 show-handles' : 'ring-2 ring-blue-500 show-handles'
                 : 'hover:ring-2 hover:ring-blue-300'
                 } ${element.locked ? 'opacity-70' : ''} cursor-move`}
               style={{ zIndex: element.zIndex + 100 }}
@@ -313,56 +307,24 @@ const MainCanvas = () => {
                 setIsOutOfBounds(false)
               }}
 
-              resizeHandleStyles={{
-                bottomRight: {
-                  width: "14px",
-                  height: "14px",
-                  background: "#3b82f6",
-                  borderRadius: "2px",
-                  bottom: "-7px",
-                  right: "-7px",
-                  cursor: "nwse-resize",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-                },
-                bottomLeft: {
-                  width: "14px",
-                  height: "14px",
-                  background: "#3b82f6",
-                  borderRadius: "2px",
-                  bottom: "-7px",
-                  left: "-7px",
-                  cursor: "nesw-resize",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-                },
-                topRight: {
-                  width: "14px",
-                  height: "14px",
-                  background: "#3b82f6",
-                  borderRadius: "2px",
-                  top: "-7px",
-                  right: "-7px",
-                  cursor: "nesw-resize",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-                },
-                topLeft: {
-                  width: "14px",
-                  height: "14px",
-                  background: "#3b82f6",
-                  borderRadius: "2px",
-                  top: "-7px",
-                  left: "-7px",
-                  cursor: "nwse-resize",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-                }
-              }}
               resizeHandleComponent={{
-                topLeft: <div className="cursor-nwse-resize" />,
-                topRight: <div className="cursor-nesw-resize" />,
-                bottomLeft: <div className="cursor-nesw-resize" />,
-                bottomRight: <div className="cursor-nwse-resize" />
+                topLeft: <div className="resize-handle resize-handle-nwse" />,
+                topRight: <div className="resize-handle resize-handle-nesw" />,
+                bottomLeft: <div className="resize-handle resize-handle-nesw" />,
+                bottomRight: <div className="resize-handle resize-handle-nwse" />
               }}
             >
-
+              {/* Delete button - shows on hover */}
+              <button
+                className="delete-btn absolute -top-2.5 -right-2.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md transition-all z-50"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  deleteElement(element.id)
+                }}
+                title="O'chirish"
+              >
+                ✕
+              </button>
             </Rnd>
           ))}
         {/* Empty State */}

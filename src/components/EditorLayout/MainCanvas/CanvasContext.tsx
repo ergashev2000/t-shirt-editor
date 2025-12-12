@@ -40,8 +40,8 @@ export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
   {
     id: 'tshirt-front',
     name: 'T-Shirt (Old\')',
-    x: (CANVAS_SIZE - 210) / 2,
-    y: (CANVAS_SIZE - 380) / 2,
+    x: (CANVAS_SIZE - 310) / 2,
+    y: (CANVAS_SIZE - 480) / 2,
     width: 210,
     height: 310,
     productImage: './download.png'
