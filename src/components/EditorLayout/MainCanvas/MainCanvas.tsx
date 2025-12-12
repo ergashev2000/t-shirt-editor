@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react'
 import { Rnd } from 'react-rnd'
 import { Lock, Unlock } from 'lucide-react'
-import { resizeHandleStyles } from './helpers'
 import { useCanvas, GRID_SIZE } from './CanvasContext'
 
 const MainCanvas = () => {
@@ -227,7 +226,7 @@ const MainCanvas = () => {
                   <img
                     src={element.content}
                     alt=""
-                    className="w-full h-full object-contain"
+                    className="w-full h-full"
                     draggable={false}
                     style={{
                       transform: `${element.flipH ? 'scaleX(-1)' : ''} ${element.flipV ? 'scaleY(-1)' : ''}`.trim() || 'none'
@@ -252,14 +251,24 @@ const MainCanvas = () => {
               position={{ x: element.x, y: element.y }}
               onDrag={(_e, d) => handleDrag(element.id, d)}
               onDragStop={(_e, d) => handleDragStop(element.id, d)}
-              minWidth={30}
-              minHeight={30}
+              minWidth={20}
+              minHeight={20}
               disableDragging={element.locked}
-              enableResizing={!element.locked}
+              enableResizing={!element.locked ? {
+                bottomRight: true,
+                bottomLeft: true,
+                topRight: true,
+                topLeft: true,
+                bottom: false,
+                top: false,
+                left: false,
+                right: false
+              } : false}
+              lockAspectRatio={true}
               className={`${selectedElement === element.id
-                ? 'ring-2 ring-blue-500'
-                : 'hover:ring-1 hover:ring-blue-300'
-                } ${element.locked ? 'opacity-70' : ''} transition-shadow`}
+                ? isOutOfBounds ? 'ring-2 ring-red-500' : 'ring-2 ring-blue-500'
+                : 'hover:ring-2 hover:ring-blue-300'
+                } ${element.locked ? 'opacity-70' : ''} cursor-move`}
               style={{ zIndex: element.zIndex + 100 }}
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation()
@@ -267,58 +276,21 @@ const MainCanvas = () => {
                 bringToFront(element.id)
               }}
 
-              onResize={(_e, direction, ref, delta) => {
-                const aspect = element.aspectRatio || (element.width / element.height)
+              onResize={(_e, _direction, ref, _delta, position) => {
+                const newWidth = ref.offsetWidth
+                const newHeight = ref.offsetHeight
 
-                let newW = ref.offsetWidth
-                let newH = ref.offsetHeight
-                let newX = element.x
-                let newY = element.y
-
-                const isCorner =
-                  direction === "topLeft" ||
-                  direction === "topRight" ||
-                  direction === "bottomLeft" ||
-                  direction === "bottomRight"
-
-                if (isCorner) {
-                  if (delta.width !== 0) {
-                    newH = newW / aspect
-                  } else if (delta.height !== 0) {
-                    newW = newH * aspect
-                  }
-
-                  if (direction === "topLeft") {
-                    newX = element.x + (element.width - newW)
-                    newY = element.y + (element.height - newH)
-                  }
-                  if (direction === "topRight") {
-                    newY = element.y + (element.height - newH)
-                  }
-                  if (direction === "bottomLeft") {
-                    newX = element.x + (element.width - newW)
-                  }
-                } else {
-                  if (direction === "left" || direction === "right") {
-                    newH = element.height
-                  }
-                  if (direction === "top" || direction === "bottom") {
-                    newW = element.width
-                  }
-                  if (direction === "left") {
-                    newX = element.x + (element.width - newW)
-                  }
-                  if (direction === "top") {
-                    newY = element.y + (element.height - newH)
-                  }
-                }
-
+                // Update element position and size in real-time
                 updateElement(element.id, {
-                  width: newW,
-                  height: newH,
-                  x: newX,
-                  y: newY
+                  width: newWidth,
+                  height: newHeight,
+                  x: position.x,
+                  y: position.y
                 })
+
+                // Check if outside design area
+                const visible = isPartiallyVisible(position.x, position.y, newWidth, newHeight)
+                setIsOutOfBounds(!visible)
               }}
 
               onResizeStop={(_e, _direction, ref, _delta, position) => {
@@ -330,49 +302,64 @@ const MainCanvas = () => {
                   width: newWidth,
                   height: newHeight,
                   x: snapped.x,
-                  y: snapped.y
+                  y: snapped.y,
+                  aspectRatio: newWidth / newHeight
                 })
+                setIsOutOfBounds(false)
               }}
 
-              resizeHandleStyles={resizeHandleStyles}
+              resizeHandleStyles={{
+                bottomRight: {
+                  width: "14px",
+                  height: "14px",
+                  background: "#3b82f6",
+                  borderRadius: "2px",
+                  bottom: "-7px",
+                  right: "-7px",
+                  cursor: "nwse-resize",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                },
+                bottomLeft: {
+                  width: "14px",
+                  height: "14px",
+                  background: "#3b82f6",
+                  borderRadius: "2px",
+                  bottom: "-7px",
+                  left: "-7px",
+                  cursor: "nesw-resize",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                },
+                topRight: {
+                  width: "14px",
+                  height: "14px",
+                  background: "#3b82f6",
+                  borderRadius: "2px",
+                  top: "-7px",
+                  right: "-7px",
+                  cursor: "nesw-resize",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                },
+                topLeft: {
+                  width: "14px",
+                  height: "14px",
+                  background: "#3b82f6",
+                  borderRadius: "2px",
+                  top: "-7px",
+                  left: "-7px",
+                  cursor: "nwse-resize",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                }
+              }}
               resizeHandleComponent={{
-                topLeft: <div className="cursor-nw-resize" />,
-                topRight: <div className="cursor-ne-resize" />,
-                bottomLeft: <div className="cursor-sw-resize" />,
-                bottomRight: <div className="cursor-se-resize" />,
-                top: <div className="cursor-n-resize" />,
-                bottom: <div className="cursor-s-resize" />,
-                left: <div className="cursor-w-resize" />,
-                right: <div className="cursor-e-resize" />,
+                topLeft: <div className="cursor-nwse-resize" />,
+                topRight: <div className="cursor-nesw-resize" />,
+                bottomLeft: <div className="cursor-nesw-resize" />,
+                bottomRight: <div className="cursor-nwse-resize" />
               }}
             >
-              {/* Transparent interaction area - content is shown in clipped layer above */}
-              <div className="w-full h-full relative">
-                {/* Lock indicator */}
-                {element.locked && (
-                  <div className="absolute top-1 right-1 bg-black/50 rounded p-1 z-50">
-                    <Lock size={12} className="text-white" />
-                  </div>
-                )}
-              </div>
+
             </Rnd>
           ))}
-
-        {/* Small Lock/Unlock button near selected element */}
-        {selectedEl && (
-          <button
-            onClick={toggleLock}
-            className="absolute z-50 bg-white rounded-full shadow-lg border border-gray-200 p-1.5 hover:bg-gray-100 transition-colors"
-            style={{
-              left: selectedEl.x - 12,
-              top: selectedEl.y - 12
-            }}
-            title={selectedEl.locked ? 'Unlock' : 'Lock'}
-          >
-            {selectedEl.locked ? <Lock size={14} /> : <Unlock size={14} />}
-          </button>
-        )}
-
         {/* Empty State */}
         {elements.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
