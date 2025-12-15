@@ -139,17 +139,6 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
               <span className="text-xs">Replace</span>
             </Button>
 
-            {/* Crop button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-8 px-2 gap-1.5 ${isCropping ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:text-gray-900'}`}
-              onClick={startCropping}
-              title="Crop"
-            >
-              <Crop className="h-4 w-4" />
-            </Button>
-
             {/* Remove BG button */}
             <Button
               variant="ghost"
@@ -164,6 +153,20 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
               ) : (
                 <Eraser className="h-4 w-4" />
               )}
+              <span>
+                {isRemovingBg ? 'Removing...' : 'Remove BG'}
+              </span>
+            </Button>
+
+            {/* Crop button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-8 px-2 gap-1.5 ${isCropping ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:text-gray-900'}`}
+              onClick={startCropping}
+              title="Crop"
+            >
+              <Crop className="h-4 w-4" />
             </Button>
 
             <Separator orientation="vertical" className="h-5" />

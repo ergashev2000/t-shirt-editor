@@ -543,13 +543,21 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       const cropWidth = cropBox.width * scaleX
       const cropHeight = cropBox.height * scaleY
 
-      // Create canvas for cropping
+      // Create canvas for cropping with high quality settings
       const canvas = document.createElement('canvas')
       canvas.width = cropWidth
       canvas.height = cropHeight
-      const ctx = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d', { 
+        alpha: true,
+        desynchronized: false,
+        willReadFrequently: false
+      })
       
       if (!ctx) return
+
+      // Enable high quality image rendering
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
 
       // Draw cropped portion
       ctx.drawImage(
@@ -558,8 +566,9 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
         0, 0, cropWidth, cropHeight
       )
 
-      // Get cropped image as data URL
-      const croppedDataUrl = canvas.toDataURL('image/png')
+      // Get cropped image as data URL with maximum quality
+      // Use PNG for lossless quality, or JPEG with quality 1.0 for smaller file size
+      const croppedDataUrl = canvas.toDataURL('image/png', 1.0)
 
       // Calculate new element position (center the cropped area where it was)
       const newX = selectedEl.x + cropBox.x

@@ -58,7 +58,8 @@ const MainCanvas = () => {
     snapToGridValue,
     isPartiallyVisible,
     designArea,
-    isCropping
+    isCropping,
+    cancelCropping
   } = useCanvas()
 
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -106,8 +107,8 @@ const MainCanvas = () => {
     return {
       x: snappedX,
       y: snappedY,
-      showHorizontal: isHorizontalCenter,
-      showVertical: isVerticalCenter
+      showHorizontal: isVerticalCenter,
+      showVertical: isHorizontalCenter
     }
   }, [getDesignAreaCenter])
 
@@ -450,9 +451,13 @@ const MainCanvas = () => {
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (e.target === canvasRef.current || e.target === designAreaRef.current) {
-      setSelectedElement(null)
+      if (isCropping) {
+        cancelCropping()
+      } else {
+        setSelectedElement(null)
+      }
     }
-  }, [setSelectedElement])
+  }, [setSelectedElement, isCropping, cancelCropping])
 
   // Render resize handles
   const renderHandles = (element: CanvasElement) => {
@@ -717,8 +722,10 @@ const MainCanvas = () => {
                     className="w-full h-full"
                     draggable={false}
                     style={{
-                      transform: `${element.flipH ? 'scaleX(-1)' : ''} ${element.flipV ? 'scaleY(-1)' : ''}`.trim() || 'none'
-                    }}
+                      transform: `${element.flipH ? 'scaleX(-1)' : ''} ${element.flipV ? 'scaleY(-1)' : ''}`.trim() || 'none',
+                      imageRendering: 'auto',
+                      backfaceVisibility: 'hidden'
+                    } as React.CSSProperties}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

@@ -115,7 +115,7 @@ const CropSidebar: React.FC<CropSidebarProps> = ({ element }) => {
   }
 
   return (
-    <div className="w-72 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-full bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
         <h3 className="font-medium text-gray-900">Crop</h3>

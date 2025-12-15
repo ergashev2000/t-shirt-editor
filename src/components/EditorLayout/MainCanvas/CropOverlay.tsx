@@ -151,17 +151,20 @@ const CropOverlay: React.FC<CropOverlayProps> = ({ element }) => {
 
   if (!cropBox) return null
 
-  const handleSize = 10
+  // Edge handles only (no corner dots) - thicker border areas for resizing
+  const edgeHandles: { type: CropHandle; style: React.CSSProperties; cursor: string }[] = [
+    { type: 'n', style: { top: -4, left: 8, right: 8, height: 8 }, cursor: 'ns-resize' },
+    { type: 's', style: { bottom: -4, left: 8, right: 8, height: 8 }, cursor: 'ns-resize' },
+    { type: 'e', style: { right: -4, top: 8, bottom: 8, width: 8 }, cursor: 'ew-resize' },
+    { type: 'w', style: { left: -4, top: 8, bottom: 8, width: 8 }, cursor: 'ew-resize' },
+  ]
 
-  const handles: { type: CropHandle; style: React.CSSProperties; cursor: string }[] = [
-    { type: 'nw', style: { top: -handleSize / 2, left: -handleSize / 2 }, cursor: 'nwse-resize' },
-    { type: 'ne', style: { top: -handleSize / 2, right: -handleSize / 2 }, cursor: 'nesw-resize' },
-    { type: 'se', style: { bottom: -handleSize / 2, right: -handleSize / 2 }, cursor: 'nwse-resize' },
-    { type: 'sw', style: { bottom: -handleSize / 2, left: -handleSize / 2 }, cursor: 'nesw-resize' },
-    { type: 'n', style: { top: -handleSize / 2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
-    { type: 's', style: { bottom: -handleSize / 2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
-    { type: 'e', style: { top: '50%', right: -handleSize / 2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
-    { type: 'w', style: { top: '50%', left: -handleSize / 2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
+  // Corner handles - invisible but functional
+  const cornerHandles: { type: CropHandle; style: React.CSSProperties; cursor: string }[] = [
+    { type: 'nw', style: { top: -6, left: -6, width: 14, height: 14 }, cursor: 'nwse-resize' },
+    { type: 'ne', style: { top: -6, right: -6, width: 14, height: 14 }, cursor: 'nesw-resize' },
+    { type: 'se', style: { bottom: -6, right: -6, width: 14, height: 14 }, cursor: 'nwse-resize' },
+    { type: 'sw', style: { bottom: -6, left: -6, width: 14, height: 14 }, cursor: 'nesw-resize' },
   ]
 
   return (
@@ -236,26 +239,33 @@ const CropOverlay: React.FC<CropOverlayProps> = ({ element }) => {
           <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/50" />
         </div>
 
-        {/* Resize handles - purple/violet like reference */}
-        {handles.map(({ type, style, cursor }) => {
-          const isCorner = ['nw', 'ne', 'se', 'sw'].includes(type)
-          return (
-            <div
-              key={type}
-              className={`absolute ${isCorner ? 'rounded-full' : 'rounded-sm'}`}
-              style={{
-                width: isCorner ? 12 : 8,
-                height: isCorner ? 12 : 8,
-                backgroundColor: '#8b5cf6',
-                border: '2px solid white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                cursor,
-                ...style
-              }}
-              onMouseDown={(e) => handleMouseDown(e, type)}
-            />
-          )
-        })}
+        {/* Edge resize handles - invisible but functional */}
+        {edgeHandles.map(({ type, style, cursor }) => (
+          <div
+            key={type}
+            className="absolute"
+            style={{
+              ...style,
+              cursor,
+              zIndex: 10
+            }}
+            onMouseDown={(e) => handleMouseDown(e, type)}
+          />
+        ))}
+
+        {/* Corner resize handles - invisible but functional */}
+        {cornerHandles.map(({ type, style, cursor }) => (
+          <div
+            key={type}
+            className="absolute"
+            style={{
+              ...style,
+              cursor,
+              zIndex: 11
+            }}
+            onMouseDown={(e) => handleMouseDown(e, type)}
+          />
+        ))}
       </div>
     </div>
   )
