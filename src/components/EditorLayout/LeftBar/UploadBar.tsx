@@ -170,12 +170,6 @@ export default function UploadBar() {
                   >
                     <X className="w-4 h-4" />
                   </button>
-                  {/* Image name */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/60 to-transparent p-2">
-                    <p className="text-xs text-white truncate">
-                      {image.name}
-                    </p>
-                  </div>
                 </div>
               ))}
             </div>

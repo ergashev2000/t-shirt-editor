@@ -207,7 +207,6 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
 
   const historyRef = useRef<HistoryState[]>([])
   const historyIndexRef = useRef(-1)
-  const isInitialized = useRef(false)
 
   const selectedEl = elements.find(el => el.id === selectedElement)
 
@@ -334,46 +333,6 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     if (!snapToGrid) return value
     return Math.round(value / GRID_SIZE) * GRID_SIZE
   }, [snapToGrid])
-
-  // Initialize with default image
-  useEffect(() => {
-    if (isInitialized.current) return
-    isInitialized.current = true
-
-    const initializeDefaultImage = async () => {
-      const defaultImageUrl = './example1.png'
-      const dimensions = await getImageDimensions(defaultImageUrl)
-
-      const targetWidth = 160
-      const aspectRatio = dimensions.width / dimensions.height
-      const scaledHeight = targetWidth / aspectRatio
-
-      const x = designArea.x + (designArea.width - targetWidth) / 2
-      const y = designArea.y + (designArea.height - scaledHeight) / 2
-
-      const defaultElement: CanvasElement = {
-        id: '1',
-        type: 'image',
-        content: defaultImageUrl,
-        x,
-        y,
-        width: targetWidth,
-        height: scaledHeight,
-        zIndex: 1,
-        locked: false,
-        flipH: false,
-        flipV: false,
-        aspectRatio,
-        rotation: 0
-      }
-
-      setElements([defaultElement])
-      historyRef.current = [{ elements: [defaultElement], selectedElement: null }]
-      historyIndexRef.current = 0
-    }
-
-    initializeDefaultImage()
-  }, [])
 
   const updateElement = useCallback((id: string, updates: Partial<CanvasElement>) => {
     setElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el))
@@ -550,7 +509,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
         model: 'isnet_quint8',  // Use quantized model for faster/lighter processing
         output: {
           format: 'image/png',
-          quality: 0.8  // Slightly lower quality for performance
+          quality: 1  // Slightly lower quality for performance
         }
       })
       const url = URL.createObjectURL(blob)
