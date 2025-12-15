@@ -39,16 +39,20 @@ export interface DesignAreaConfig {
   borderRadius: number
 }
 
+// Product sides configuration
+export type ProductSide = 'front' | 'back'
+
 // eslint-disable-next-line react-refresh/only-export-components
+
 export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
   {
     id: 'tshirt-front',
-    name: 'T-Shirt (Old\')',
+    name: 'T-Shirt (Old)',
     x: 0,
-    y: 0,
-    width: 210,
-    height: 310,
-    productImage: './download.png',
+    y: -35,
+    width: 220,
+    height: 350,
+    productImage: './images/tshirt-front.png',
     borderColor: 'rgba(139, 69, 19, 0.3)',
     borderRadius: 2
   },
@@ -56,12 +60,12 @@ export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
     id: 'tshirt-back',
     name: 'T-Shirt (Orqa)',
     x: 0,
-    y: 0,
-    width: 192,
-    height: 256,
-    productImage: './download.png',
+    y: -35,
+    width: 220,
+    height: 350,
+    productImage: './images/tshirt-back.png',
     borderColor: 'rgba(139, 69, 19, 0.3)',
-    borderRadius: 8
+    borderRadius: 2
   },
   {
     id: 'hoodie-front',
@@ -118,6 +122,10 @@ interface CanvasContextType {
   setDesignAreaById: (id: string) => void
   productDesignAreas: DesignAreaConfig[]
 
+  // Product side (front/back)
+  currentSide: ProductSide
+  setCurrentSide: (side: ProductSide) => void
+
   // Actions
   undo: () => void
   redo: () => void
@@ -136,7 +144,7 @@ interface CanvasContextType {
   toggleLock: () => void
   removeBackground: () => Promise<void>
   isRemovingBg: boolean
-  
+
   // Cropping
   isCropping: boolean
   cropBox: { x: number; y: number; width: number; height: number } | null
@@ -163,7 +171,27 @@ interface CanvasContextType {
 const CanvasContext = createContext<CanvasContextType | null>(null)
 
 export function CanvasProvider({ children }: { children: React.ReactNode }) {
-  const [elements, setElements] = useState<CanvasElement[]>([])
+  // Separate elements for front and back
+  const [frontElements, setFrontElements] = useState<CanvasElement[]>([])
+  const [backElements, setBackElements] = useState<CanvasElement[]>([])
+  const [currentSide, setCurrentSideState] = useState<ProductSide>('front')
+
+  // Use ref to track current side for callbacks
+  const currentSideRef = useRef<ProductSide>(currentSide)
+  currentSideRef.current = currentSide
+
+  // Current elements based on side
+  const elements = currentSide === 'front' ? frontElements : backElements
+
+  // Stable setElements function that always uses current side
+  const setElements = useCallback((updater: React.SetStateAction<CanvasElement[]>) => {
+    if (currentSideRef.current === 'front') {
+      setFrontElements(updater)
+    } else {
+      setBackElements(updater)
+    }
+  }, [])
+
   const [selectedElement, setSelectedElement] = useState<string | null>(null)
   const [maxZIndex, setMaxZIndex] = useState(1)
   const [snapToGrid, setSnapToGrid] = useState(false)
@@ -180,6 +208,18 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const isInitialized = useRef(false)
 
   const selectedEl = elements.find(el => el.id === selectedElement)
+
+  // Switch between front and back
+  const setCurrentSide = useCallback((side: ProductSide) => {
+    setSelectedElement(null) // Clear selection when switching
+    setCurrentSideState(side)
+    // Update design area based on side
+    const areaId = side === 'front' ? 'tshirt-front' : 'tshirt-back'
+    const area = PRODUCT_DESIGN_AREAS.find(a => a.id === areaId)
+    if (area) {
+      setDesignArea(area)
+    }
+  }, [])
 
   // Set design area by product id
   const setDesignAreaById = useCallback((id: string) => {
@@ -331,7 +371,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     }
 
     initializeDefaultImage()
-  }, [getImageDimensions])
+  }, [])
 
   const updateElement = useCallback((id: string, updates: Partial<CanvasElement>) => {
     setElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el))
@@ -527,7 +567,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       // Load the original image
       const img = new Image()
       img.crossOrigin = 'anonymous'
-      
+
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
@@ -547,12 +587,12 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       const canvas = document.createElement('canvas')
       canvas.width = cropWidth
       canvas.height = cropHeight
-      const ctx = canvas.getContext('2d', { 
+      const ctx = canvas.getContext('2d', {
         alpha: true,
         desynchronized: false,
         willReadFrequently: false
       })
-      
+
       if (!ctx) return
 
       // Enable high quality image rendering
@@ -640,7 +680,9 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       getImageDimensions,
       designArea,
       setDesignAreaById,
-      productDesignAreas: PRODUCT_DESIGN_AREAS
+      productDesignAreas: PRODUCT_DESIGN_AREAS,
+      currentSide,
+      setCurrentSide
     }}>
       {children}
     </CanvasContext.Provider>

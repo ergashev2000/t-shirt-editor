@@ -4,8 +4,6 @@ import ImageBar from './ImageBar'
 import TextBar from './TextBar'
 import ProductsBar from './ProductsBar'
 import SavedBar from './SavedBar'
-import CropSidebar from '../MainCanvas/CropSidebar'
-import { useCanvas } from '../MainCanvas/CanvasContext'
 import { Image, Package, Save, Text, Upload } from 'lucide-react'
 
 const SIDEBAR_MENU = [
@@ -42,20 +40,9 @@ const SIDEBAR_MENU = [
 ]
 
 export default function LeftBar() {
-  const { isCropping, selectedEl } = useCanvas()
-
-  // Show CropSidebar when cropping is active
-  if (isCropping && selectedEl) {
-    return (
-      <div className='w-(--leftbar-width) flex'>
-        <CropSidebar element={selectedEl} />
-      </div>
-    )
-  }
-
   return (
     <div className='w-(--leftbar-width) flex'>
-      <Tabs defaultValue="upload" orientation='vertical' className='flex-row w-full gap-0 bg-[#f3f4f6]'>
+      <Tabs defaultValue="image" orientation='vertical' className='flex-row w-full gap-0 bg-[#f3f4f6]'>
         <div className='bg-[#f3f4f6] h-full'>
           <TabsList className="flex-col w-[76px] h-min space-y-2 shadow-none bg-none p-0 pl-1 py-3">
             {SIDEBAR_MENU.map((item) => (

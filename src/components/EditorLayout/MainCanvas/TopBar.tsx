@@ -13,7 +13,8 @@ import {
   Eye,
   Undo2,
   Redo2,
-  Grid3X3
+  Grid3X3,
+  Shirt
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -51,6 +52,8 @@ export default function TopBar() {
     alignCenterH,
     alignCenterV,
     centerElement,
+    currentSide,
+    setCurrentSide,
   } = useCanvas()
 
   const hasSelection = !!selectedEl
@@ -60,8 +63,32 @@ export default function TopBar() {
       <div className="h-auto border-b border-gray-200">
         {/* Main Toolbar */}
         <div className="h-14 flex justify-between items-center w-full px-3">
-          {/* Left section - Element actions */}
-          <div className="flex items-center gap-1">
+          {/* Left section - Front/Back Toggle */}
+          <div className="flex items-center gap-2">
+            {/* Front/Back Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <Button
+                variant={currentSide === 'front' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCurrentSide('front')}
+                className="h-8 px-3 gap-1.5"
+              >
+                <Shirt size={16} />
+                <span className="text-xs">Old</span>
+              </Button>
+              <Button
+                variant={currentSide === 'back' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCurrentSide('back')}
+                className="h-8 px-3 gap-1.5"
+              >
+                <Shirt size={16} className="rotate-180" />
+                <span className="text-xs">Orqa</span>
+              </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-8 mx-1" />
+
             {/* Align */}
             <Popover>
               <Tooltip>

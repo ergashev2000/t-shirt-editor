@@ -202,15 +202,22 @@ const MainCanvas = () => {
         let newX = startElX + deltaX
         let newY = startElY + deltaY
 
-        // Apply grid snap
-        newX = snapToGridValue(newX)
-        newY = snapToGridValue(newY)
-
-        // Check center snap
+        // Check center snap first (before grid snap)
         const centerSnap = checkCenterSnap(element, newX, newY)
-        newX = centerSnap.x
-        newY = centerSnap.y
         setShowCenterGuide({ horizontal: centerSnap.showHorizontal, vertical: centerSnap.showVertical })
+
+        // Apply grid snap only if not center snapped
+        if (centerSnap.showVertical) {
+          newX = centerSnap.x
+        } else {
+          newX = snapToGridValue(newX)
+        }
+
+        if (centerSnap.showHorizontal) {
+          newY = centerSnap.y
+        } else {
+          newY = snapToGridValue(newY)
+        }
 
         updateElement(elementId, { x: newX, y: newY })
 
@@ -429,6 +436,19 @@ const MainCanvas = () => {
       if (imageUrl) {
         await addElement('image', imageUrl)
       }
+
+      // Handle text-art drops
+      const jsonData = e.dataTransfer?.getData('application/json')
+      if (jsonData) {
+        try {
+          const data = JSON.parse(jsonData)
+          if (data.type === 'text-art' && data.content) {
+            await addElement('image', data.content)
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
     }
 
     const handleDragOver = (e: DragEvent) => {
@@ -446,6 +466,21 @@ const MainCanvas = () => {
         canvas.removeEventListener('drop', handleDrop)
         canvas.removeEventListener('dragover', handleDragOver)
       }
+    }
+  }, [addElement])
+
+  // Listen for addImageToCanvas custom event (from TextBar click)
+  useEffect(() => {
+    const handleAddImage = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ src: string }>
+      if (customEvent.detail?.src) {
+        await addElement('image', customEvent.detail.src)
+      }
+    }
+
+    window.addEventListener('addImageToCanvas', handleAddImage)
+    return () => {
+      window.removeEventListener('addImageToCanvas', handleAddImage)
     }
   }, [addElement])
 
@@ -561,16 +596,16 @@ const MainCanvas = () => {
               width: 20,
               height: 20,
               borderRadius: '50%',
-              backgroundColor: isRotating ? '#f97316' : '#8b5cf6',
-              border: '2px solid white',
+              border: `2px solid ${isRotating ? '#f97316' : '#8b5cf6'}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              transition: 'background-color 0.15s ease'
+              transition: 'border-color 0.15s ease',
+              cursor: 'grabbing'
             }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2">
               <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
           </div>
@@ -592,7 +627,7 @@ const MainCanvas = () => {
         {/* T-shirt Template */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative">
-            <img src={PRODUCT_DESIGN_AREAS[0]?.productImage || ''} alt="Product template" className='w-[600px] h-[600px]' />
+            <img src={designArea.productImage || ''} alt="Product template" className='w-[600px] h-[600px]' />
           </div>
         </div>
 
@@ -663,7 +698,7 @@ const MainCanvas = () => {
                   position: 'absolute',
                   left: '50%',
                   top: 0,
-                  width: 2,
+                  width: "1.5px",
                   height: '100%',
                   backgroundColor: '#ef4444',
                   transform: 'translateX(-50%)'
@@ -677,7 +712,7 @@ const MainCanvas = () => {
                   top: '50%',
                   left: 0,
                   width: '100%',
-                  height: 2,
+                  height: "1.5px",
                   backgroundColor: '#ef4444',
                   transform: 'translateY(-50%)'
                 }}
