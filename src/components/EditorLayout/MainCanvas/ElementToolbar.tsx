@@ -27,6 +27,8 @@ import {
   ChevronsDown,
   Move,
   RotateCcw,
+  Crop,
+  Eraser,
 } from 'lucide-react'
 import { useCanvas } from './CanvasContext'
 import type { CanvasElement } from './CanvasContext'
@@ -49,6 +51,10 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
     elements,
     updateElement,
     setSelectedElement,
+    removeBackground,
+    isRemovingBg,
+    startCropping,
+    isCropping,
   } = useCanvas()
 
   const handleReplace = () => {
@@ -119,9 +125,10 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Replace button */}
+        {/* Image-specific buttons */}
         {element.type === 'image' && (
           <>
+            {/* Replace button */}
             <Button
               variant="ghost"
               size="sm"
@@ -129,8 +136,36 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
               onClick={handleReplace}
             >
               <RefreshCw className="h-4 w-4" />
-              <span className="text-sm">Replace</span>
+              <span className="text-xs">Replace</span>
             </Button>
+
+            {/* Crop button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-8 px-2 gap-1.5 ${isCropping ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:text-gray-900'}`}
+              onClick={startCropping}
+              title="Crop"
+            >
+              <Crop className="h-4 w-4" />
+            </Button>
+
+            {/* Remove BG button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 gap-1.5 text-gray-700 hover:text-gray-900"
+              onClick={removeBackground}
+              disabled={isRemovingBg}
+              title="Background o'chirish"
+            >
+              {isRemovingBg ? (
+                <div className="h-4 w-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+              ) : (
+                <Eraser className="h-4 w-4" />
+              )}
+            </Button>
+
             <Separator orientation="vertical" className="h-5" />
           </>
         )}

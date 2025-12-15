@@ -8,8 +8,6 @@ import {
   AlignEndHorizontal,
   FlipHorizontal,
   FlipVertical,
-  Eraser,
-  Crop,
   Copy,
   Save,
   Eye,
@@ -53,8 +51,6 @@ export default function TopBar() {
     alignCenterH,
     alignCenterV,
     centerElement,
-    removeBackground,
-    isRemovingBg
   } = useCanvas()
 
   const hasSelection = !!selectedEl
@@ -198,44 +194,6 @@ export default function TopBar() {
                 </div>
               </PopoverContent>
             </Popover>
-
-            {/* Remove BG */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={removeBackground}
-                  disabled={!hasSelection || selectedEl?.type !== 'image' || isRemovingBg}
-                  className="flex flex-col items-center h-auto py-1 px-3 min-w-[60px]"
-                >
-                  {isRemovingBg ? (
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-                  ) : (
-                    <Eraser size={20} />
-                  )}
-                  <span className="text-[10px] mt-0.5">{isRemovingBg ? 'Processing...' : 'Remove BG'}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Remove background</TooltipContent>
-            </Tooltip>
-
-            {/* Crop */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => alert('Crop feature coming soon')}
-                  disabled={!hasSelection}
-                  className="flex flex-col items-center h-auto py-1 px-3 min-w-[50px]"
-                >
-                  <Crop size={20} />
-                  <span className="text-[10px] mt-0.5">Crop</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Crop element</TooltipContent>
-            </Tooltip>
 
             {/* Duplicate */}
             <Tooltip>

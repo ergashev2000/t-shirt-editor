@@ -136,6 +136,14 @@ interface CanvasContextType {
   toggleLock: () => void
   removeBackground: () => Promise<void>
   isRemovingBg: boolean
+  
+  // Cropping
+  isCropping: boolean
+  cropBox: { x: number; y: number; width: number; height: number } | null
+  setCropBox: React.Dispatch<React.SetStateAction<{ x: number; y: number; width: number; height: number } | null>>
+  startCropping: () => void
+  cancelCropping: () => void
+  applyCrop: () => Promise<void>
 
   // Alignment
   alignLeft: () => void
@@ -164,6 +172,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const [canRedo, setCanRedo] = useState(false)
   const [designArea, setDesignArea] = useState<DesignAreaConfig>(PRODUCT_DESIGN_AREAS[0])
   const [isRemovingBg, setIsRemovingBg] = useState(false)
+  const [isCropping, setIsCropping] = useState(false)
+  const [cropBox, setCropBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
   const historyRef = useRef<HistoryState[]>([])
   const historyIndexRef = useRef(-1)
@@ -497,6 +507,82 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     }
   }, [selectedEl, updateElementWithHistory])
 
+  // Cropping functions
+  const startCropping = useCallback(() => {
+    if (!selectedEl || selectedEl.type !== 'image') return
+    // Initialize crop box to full element size
+    setCropBox({ x: 0, y: 0, width: selectedEl.width, height: selectedEl.height })
+    setIsCropping(true)
+  }, [selectedEl])
+
+  const cancelCropping = useCallback(() => {
+    setIsCropping(false)
+    setCropBox(null)
+  }, [])
+
+  const applyCrop = useCallback(async () => {
+    if (!selectedEl || selectedEl.type !== 'image' || !cropBox) return
+
+    try {
+      // Load the original image
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = reject
+        img.src = selectedEl.content
+      })
+
+      // Calculate crop coordinates relative to original image
+      const scaleX = img.naturalWidth / selectedEl.width
+      const scaleY = img.naturalHeight / selectedEl.height
+
+      const cropX = cropBox.x * scaleX
+      const cropY = cropBox.y * scaleY
+      const cropWidth = cropBox.width * scaleX
+      const cropHeight = cropBox.height * scaleY
+
+      // Create canvas for cropping
+      const canvas = document.createElement('canvas')
+      canvas.width = cropWidth
+      canvas.height = cropHeight
+      const ctx = canvas.getContext('2d')
+      
+      if (!ctx) return
+
+      // Draw cropped portion
+      ctx.drawImage(
+        img,
+        cropX, cropY, cropWidth, cropHeight,
+        0, 0, cropWidth, cropHeight
+      )
+
+      // Get cropped image as data URL
+      const croppedDataUrl = canvas.toDataURL('image/png')
+
+      // Calculate new element position (center the cropped area where it was)
+      const newX = selectedEl.x + cropBox.x
+      const newY = selectedEl.y + cropBox.y
+
+      // Update element with cropped image
+      updateElementWithHistory(selectedEl.id, {
+        content: croppedDataUrl,
+        x: newX,
+        y: newY,
+        width: cropBox.width,
+        height: cropBox.height,
+        aspectRatio: cropBox.width / cropBox.height
+      })
+
+      // Exit crop mode
+      setIsCropping(false)
+      setCropBox(null)
+    } catch (error) {
+      console.error('Crop failed:', error)
+    }
+  }, [selectedEl, cropBox, updateElementWithHistory])
+
   return (
     <CanvasContext.Provider value={{
       elements,
@@ -527,6 +613,12 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       toggleLock,
       removeBackground,
       isRemovingBg,
+      isCropping,
+      cropBox,
+      setCropBox,
+      startCropping,
+      cancelCropping,
+      applyCrop,
       alignLeft,
       alignRight,
       alignTop,

@@ -26,7 +26,7 @@ interface PexelsResponse {
 const fetchPictures = async (): Promise<PictureItem[]> => {
   const API_KEY = 'ybDne75Z570K1ZAd5iCuplbyqtNE65OPeiUBfoTDNKXCLoIuT0iurm7S'
 
-  const response = await fetch('https://api.pexels.com/v1/curated?per_page=50&page=1', {
+  const response = await fetch('https://api.pexels.com/v1/search?query=Vector+art&per_page=500&page=1', {
     headers: {
       'Authorization': API_KEY
     }

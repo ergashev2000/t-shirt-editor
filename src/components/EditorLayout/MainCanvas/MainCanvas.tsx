@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useEffect, useState } from 'react'
 import { useCanvas, GRID_SIZE, PRODUCT_DESIGN_AREAS } from './CanvasContext'
 import type { CanvasElement } from './CanvasContext'
 import ElementToolbar from './ElementToolbar'
+import CropOverlay from './CropOverlay'
 
 // PRODUCT_DESIGN_AREAS dan birinchi templateni olish
 const CHEGARA = PRODUCT_DESIGN_AREAS[0]
@@ -56,18 +57,21 @@ const MainCanvas = () => {
     snapBackIfOutside,
     snapToGridValue,
     isPartiallyVisible,
-    designArea
+    designArea,
+    isCropping
   } = useCanvas()
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const designAreaRef = useRef<HTMLDivElement>(null)
   const interactiveLayerRef = useRef<HTMLDivElement>(null)
-  
+
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [isRotating, setIsRotating] = useState(false)
   const [showCenterGuide, setShowCenterGuide] = useState<{ horizontal: boolean; vertical: boolean }>({ horizontal: false, vertical: false })
-  
+  const [hoveredHandle, setHoveredHandle] = useState<HandleType | null>(null)
+  const [activeHandle, setActiveHandle] = useState<HandleType | null>(null)
+
   const dragStateRef = useRef<DragState | null>(null)
   const resizeStateRef = useRef<ResizeState | null>(null)
   const rotateStateRef = useRef<RotateState | null>(null)
@@ -156,6 +160,7 @@ const MainCanvas = () => {
       aspectRatio: element.aspectRatio || element.width / element.height
     }
     setIsResizing(true)
+    setActiveHandle(handle)
   }, [elements, getRelativeMousePos])
 
   // Handle rotate start
@@ -168,7 +173,7 @@ const MainCanvas = () => {
     const pos = getRelativeMousePos(e)
     const centerX = element.x + element.width / 2
     const centerY = element.y + element.height / 2
-    
+
     rotateStateRef.current = {
       elementId,
       startMouseX: pos.x,
@@ -281,11 +286,11 @@ const MainCanvas = () => {
       // Handle rotating
       if (isRotating && rotateStateRef.current) {
         const { elementId, centerX, centerY, startRotation } = rotateStateRef.current
-        
+
         const angle = Math.atan2(pos.y - centerY, pos.x - centerX) * (180 / Math.PI)
         const startAngle = Math.atan2(rotateStateRef.current.startMouseY - centerY, rotateStateRef.current.startMouseX - centerX) * (180 / Math.PI)
         let newRotation = startRotation + (angle - startAngle)
-        
+
         // Snap to 0, 90, 180, 270 degrees
         const snapAngles = [0, 90, 180, 270, 360, -90, -180, -270]
         for (const snapAngle of snapAngles) {
@@ -294,6 +299,7 @@ const MainCanvas = () => {
             break
           }
         }
+
 
         updateElement(elementId, { rotation: newRotation })
       }
@@ -328,6 +334,7 @@ const MainCanvas = () => {
         }
         resizeStateRef.current = null
         setIsResizing(false)
+        setActiveHandle(null)
         setIsOutOfBounds(false)
       }
 
@@ -452,38 +459,84 @@ const MainCanvas = () => {
     if (selectedElement !== element.id || element.locked) return null
 
     const handleSize = 10
-    const handleStyle = {
+    const pillWidth = 6
+    const pillHeight = 20
+
+    // Burchaklar uchun stil (doira) - binafsha rang
+    const cornerStyle = {
       width: handleSize,
       height: handleSize,
-      backgroundColor: '#3b82f6',
-      border: '2px solid white',
-      borderRadius: '2px',
+      backgroundColor: '#8b5cf6',
+      border: '2px solid #8b5cf6',
+      borderRadius: '50%',
       position: 'absolute' as const,
       zIndex: 1000,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+      transition: 'background-color 0.15s ease',
     }
 
-    const handles: { type: HandleType; style: React.CSSProperties; cursor: string }[] = [
-      { type: 'nw', style: { top: -handleSize/2, left: -handleSize/2 }, cursor: 'nwse-resize' },
-      { type: 'n', style: { top: -handleSize/2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
-      { type: 'ne', style: { top: -handleSize/2, right: -handleSize/2 }, cursor: 'nesw-resize' },
-      { type: 'e', style: { top: '50%', right: -handleSize/2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
-      { type: 'se', style: { bottom: -handleSize/2, right: -handleSize/2 }, cursor: 'nwse-resize' },
-      { type: 's', style: { bottom: -handleSize/2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
-      { type: 'sw', style: { bottom: -handleSize/2, left: -handleSize/2 }, cursor: 'nesw-resize' },
-      { type: 'w', style: { top: '50%', left: -handleSize/2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
+    // Yon tomonlar uchun stil (pill) - binafsha rang
+    const edgeStyleVertical = {
+      width: pillWidth,
+      height: pillHeight,
+      backgroundColor: 'white',
+      border: '2px solid #8b5cf6',
+      borderRadius: pillWidth / 2,
+      position: 'absolute' as const,
+      zIndex: 1000,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+      transition: 'background-color 0.15s ease',
+    }
+
+    const edgeStyleHorizontal = {
+      width: pillHeight,
+      height: pillWidth,
+      backgroundColor: 'white',
+      border: '2px solid #8b5cf6',
+      borderRadius: pillWidth / 2,
+      position: 'absolute' as const,
+      zIndex: 1000,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+      transition: 'background-color 0.15s ease',
+    }
+
+    const handles: { type: HandleType; style: React.CSSProperties; baseStyle: React.CSSProperties; cursor: string }[] = [
+      // Burchaklar
+      { type: 'nw', baseStyle: cornerStyle, style: { top: -handleSize / 2, left: -handleSize / 2 }, cursor: 'nwse-resize' },
+      { type: 'ne', baseStyle: cornerStyle, style: { top: -handleSize / 2, right: -handleSize / 2 }, cursor: 'nesw-resize' },
+      { type: 'se', baseStyle: cornerStyle, style: { bottom: -handleSize / 2, right: -handleSize / 2 }, cursor: 'nwse-resize' },
+      { type: 'sw', baseStyle: cornerStyle, style: { bottom: -handleSize / 2, left: -handleSize / 2 }, cursor: 'nesw-resize' },
+      // Yon tomonlar (pill)
+      { type: 'n', baseStyle: edgeStyleHorizontal, style: { top: -(pillWidth + 2) / 2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
+      { type: 's', baseStyle: edgeStyleHorizontal, style: { bottom: -(pillWidth + 2) / 2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
+      { type: 'e', baseStyle: edgeStyleVertical, style: { top: '50%', right: -(pillWidth + 2) / 2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
+      { type: 'w', baseStyle: edgeStyleVertical, style: { top: '50%', left: -(pillWidth + 2) / 2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
     ]
 
     return (
       <>
-        {handles.map(({ type, style, cursor }) => (
-          <div
-            key={type}
-            style={{ ...handleStyle, ...style, cursor }}
-            onMouseDown={(e) => handleResizeStart(e, element.id, type)}
-          />
-        ))}
-        {/* Rotate handle */}
+        {handles.map(({ type, style, baseStyle, cursor }) => {
+          // Resize qilayotganda faqat aktiv handle ko'rinadi
+          if (isResizing && activeHandle && activeHandle !== type) return null
+
+          const isHovered = hoveredHandle === type
+          const isCorner = ['nw', 'ne', 'se', 'sw'].includes(type)
+          // Burchaklar uchun binafsha, yon tomonlar uchun oq fon
+          const bgColor = isCorner
+            ? (isHovered ? '#f3f0ff' : '#ffffff')
+            : (isHovered ? '#f3f0ff' : '#ffffff')
+
+          return (
+            <div
+              key={type}
+              style={{ ...baseStyle, ...style, cursor, backgroundColor: bgColor }}
+              onMouseDown={(e) => handleResizeStart(e, element.id, type)}
+              onMouseEnter={() => setHoveredHandle(type)}
+              onMouseLeave={() => setHoveredHandle(null)}
+            />
+          )
+        })}
+        {/* Rotate handle - counter-rotate to stay upright */}
         <div
           style={{
             position: 'absolute',
@@ -497,18 +550,19 @@ const MainCanvas = () => {
           }}
           onMouseDown={(e) => handleRotateStart(e, element.id)}
         >
-          <div style={{ width: 1, height: 20, backgroundColor: '#3b82f6' }} />
+          <div style={{ width: 1, height: 15, backgroundColor: isRotating ? '#f97316' : '#8b5cf6' }} />
           <div
             style={{
               width: 20,
               height: 20,
               borderRadius: '50%',
-              backgroundColor: '#3b82f6',
+              backgroundColor: isRotating ? '#f97316' : '#8b5cf6',
               border: '2px solid white',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              transition: 'background-color 0.15s ease'
             }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -675,6 +729,28 @@ const MainCanvas = () => {
             ))}
         </div>
 
+        {/* Element Toolbar - fixed at top of design area (hide during crop) */}
+        {selectedElement && !isDragging && !isResizing && !isRotating && !isCropping && (() => {
+          const element = elements.find(el => el.id === selectedElement)
+          if (!element) return null
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: `calc(50% + ${CHEGARA.x}px)`,
+                top: `calc(50% + ${CHEGARA.y}px - ${CHEGARA.height / 2}px - 60px)`,
+                transform: 'translateX(-50%)',
+                zIndex: 1000
+              }}
+            >
+              <ElementToolbar
+                element={element}
+                position={{ x: 0, y: 0 }}
+              />
+            </div>
+          )
+        })()}
+
         {/* Canvas Elements - Interactive layer */}
         <div
           ref={interactiveLayerRef}
@@ -694,11 +770,10 @@ const MainCanvas = () => {
             .map(element => (
               <div
                 key={element.id}
-                className={`absolute cursor-move ${
-                  selectedElement === element.id
-                    ? isOutOfBounds ? 'ring-2 ring-red-500' : 'ring-2 ring-blue-500'
-                    : 'hover:ring-2 hover:ring-blue-300'
-                } ${element.locked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                className={`absolute cursor-move ${selectedElement === element.id
+                  ? isOutOfBounds ? 'ring-2 ring-red-500' : 'ring-2 ring-violet-500'
+                  : 'hover:ring-2 hover:ring-violet-300'
+                  } ${element.locked ? 'opacity-70 cursor-not-allowed' : ''}`}
                 style={{
                   left: element.x,
                   top: element.y,
@@ -708,25 +783,24 @@ const MainCanvas = () => {
                   transform: `rotate(${element.rotation || 0}deg)`,
                   transformOrigin: 'center center'
                 }}
-                onMouseDown={(e) => handleDragStart(e, element.id)}
+                onMouseDown={(e) => !isCropping && handleDragStart(e, element.id)}
                 onClick={(e) => {
                   e.stopPropagation()
-                  setSelectedElement(element.id)
-                  bringToFront(element.id)
+                  if (!isCropping) {
+                    setSelectedElement(element.id)
+                    bringToFront(element.id)
+                  }
                 }}
               >
                 {/* Transparent overlay for interaction */}
                 <div className="w-full h-full" />
-                
-                {/* Resize and rotate handles */}
-                {renderHandles(element)}
 
-                {/* Element Toolbar - shows above selected element */}
-                {selectedElement === element.id && !isDragging && !isResizing && !isRotating && (
-                  <ElementToolbar
-                    element={element}
-                    position={{ x: element.width / 2, y: -50 }}
-                  />
+                {/* Resize and rotate handles - hide during crop */}
+                {!isCropping && renderHandles(element)}
+
+                {/* Crop overlay - show when cropping this element */}
+                {isCropping && selectedElement === element.id && element.type === 'image' && (
+                  <CropOverlay element={element} />
                 )}
               </div>
             ))}
