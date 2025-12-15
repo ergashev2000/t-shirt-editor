@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
+import { removeBackground as removeBg } from '@imgly/background-removal'
 
 export interface CanvasElement {
   id: string
@@ -13,6 +14,7 @@ export interface CanvasElement {
   flipH?: boolean
   flipV?: boolean
   aspectRatio?: number
+  rotation?: number
 }
 
 interface HistoryState {
@@ -33,6 +35,8 @@ export interface DesignAreaConfig {
   width: number
   height: number
   productImage: string
+  borderColor: string
+  borderRadius: number
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -40,53 +44,59 @@ export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
   {
     id: 'tshirt-front',
     name: 'T-Shirt (Old\')',
-    x: (CANVAS_SIZE - 310) / 2,
-    y: (CANVAS_SIZE - 480) / 2,
+    x: 0,
+    y: 0,
     width: 210,
     height: 310,
-    productImage: './download.png'
+    productImage: './download.png',
+    borderColor: 'rgba(139, 69, 19, 0.3)',
+    borderRadius: 2
   },
   {
     id: 'tshirt-back',
     name: 'T-Shirt (Orqa)',
-    x: (CANVAS_SIZE - 192) / 2,
-    y: (CANVAS_SIZE - 256) / 2,
+    x: 0,
+    y: 0,
     width: 192,
     height: 256,
-    productImage: './download.png'
+    productImage: './download.png',
+    borderColor: 'rgba(139, 69, 19, 0.3)',
+    borderRadius: 8
   },
   {
     id: 'hoodie-front',
     name: 'Hoodie (Old\')',
-    x: (CANVAS_SIZE - 180) / 2,
-    y: (CANVAS_SIZE - 240) / 2,
+    x: 0,
+    y: 0,
     width: 180,
     height: 240,
-    productImage: './download.png'
+    productImage: './download.png',
+    borderColor: 'rgba(100, 100, 100, 0.3)',
+    borderRadius: 8
   },
   {
     id: 'hoodie-back',
     name: 'Hoodie (Orqa)',
-    x: (CANVAS_SIZE - 200) / 2,
-    y: (CANVAS_SIZE - 280) / 2,
+    x: 0,
+    y: 0,
     width: 200,
     height: 280,
-    productImage: './download.png'
+    productImage: './download.png',
+    borderColor: 'rgba(100, 100, 100, 0.3)',
+    borderRadius: 8
   },
   {
     id: 'mug',
     name: 'Krujka',
-    x: (CANVAS_SIZE - 250) / 2,
-    y: (CANVAS_SIZE - 150) / 2,
+    x: 0,
+    y: 0,
     width: 250,
     height: 150,
-    productImage: './download.png'
+    productImage: './download.png',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 4
   }
 ]
-
-// Default design area (first product)
-export const DEFAULT_DESIGN_AREA = PRODUCT_DESIGN_AREAS[0]
-
 interface CanvasContextType {
   // State
   elements: CanvasElement[]
@@ -124,6 +134,8 @@ interface CanvasContextType {
   flipVertical: () => void
   duplicateElement: () => void
   toggleLock: () => void
+  removeBackground: () => Promise<void>
+  isRemovingBg: boolean
 
   // Alignment
   alignLeft: () => void
@@ -150,7 +162,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const [isOutOfBounds, setIsOutOfBounds] = useState(false)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
-  const [designArea, setDesignArea] = useState<DesignAreaConfig>(DEFAULT_DESIGN_AREA)
+  const [designArea, setDesignArea] = useState<DesignAreaConfig>(PRODUCT_DESIGN_AREAS[0])
+  const [isRemovingBg, setIsRemovingBg] = useState(false)
 
   const historyRef = useRef<HistoryState[]>([])
   const historyIndexRef = useRef(-1)
@@ -276,7 +289,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     isInitialized.current = true
 
     const initializeDefaultImage = async () => {
-      const defaultImageUrl = 'https://ajmall-vc-public-bucket.oss-us-west-1.aliyuncs.com/hugepod/material/ai_template_image/img_0061.png'
+      const defaultImageUrl = './example1.png'
       const dimensions = await getImageDimensions(defaultImageUrl)
 
       const targetWidth = 160
@@ -298,7 +311,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
         locked: false,
         flipH: false,
         flipV: false,
-        aspectRatio
+        aspectRatio,
+        rotation: 0
       }
 
       setElements([defaultElement])
@@ -370,7 +384,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       locked: false,
       flipH: false,
       flipV: false,
-      aspectRatio
+      aspectRatio,
+      rotation: 0
     }
 
     setElements(prev => {
@@ -422,7 +437,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       id: Date.now().toString(),
       x: selectedEl.x + 20,
       y: selectedEl.y + 20,
-      zIndex: maxZIndex + 1
+      zIndex: maxZIndex + 1,
+      rotation: selectedEl.rotation || 0
     }
     setElements(prev => {
       const newElements = [...prev, newElement]
@@ -466,6 +482,21 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     updateElementWithHistory(selectedEl.id, { y })
   }, [selectedEl, updateElementWithHistory, designArea])
 
+  const removeBackground = useCallback(async () => {
+    if (!selectedEl || selectedEl.type !== 'image') return
+
+    setIsRemovingBg(true)
+    try {
+      const blob = await removeBg(selectedEl.content)
+      const url = URL.createObjectURL(blob)
+      updateElementWithHistory(selectedEl.id, { content: url })
+    } catch (error) {
+      console.error('Background removal failed:', error)
+    } finally {
+      setIsRemovingBg(false)
+    }
+  }, [selectedEl, updateElementWithHistory])
+
   return (
     <CanvasContext.Provider value={{
       elements,
@@ -494,6 +525,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       flipVertical,
       duplicateElement,
       toggleLock,
+      removeBackground,
+      isRemovingBg,
       alignLeft,
       alignRight,
       alignTop,
@@ -513,6 +546,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCanvas() {
   const context = useContext(CanvasContext)
   if (!context) {

@@ -52,7 +52,9 @@ export default function TopBar() {
     alignBottom,
     alignCenterH,
     alignCenterV,
-    centerElement
+    centerElement,
+    removeBackground,
+    isRemovingBg
   } = useCanvas()
 
   const hasSelection = !!selectedEl
@@ -203,12 +205,16 @@ export default function TopBar() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => alert('Remove background feature would connect to an API like remove.bg')}
-                  disabled={!hasSelection || selectedEl?.type !== 'image'}
+                  onClick={removeBackground}
+                  disabled={!hasSelection || selectedEl?.type !== 'image' || isRemovingBg}
                   className="flex flex-col items-center h-auto py-1 px-3 min-w-[60px]"
                 >
-                  <Eraser size={20} />
-                  <span className="text-[10px] mt-0.5">Remove BG</span>
+                  {isRemovingBg ? (
+                    <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                  ) : (
+                    <Eraser size={20} />
+                  )}
+                  <span className="text-[10px] mt-0.5">{isRemovingBg ? 'Processing...' : 'Remove BG'}</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Remove background</TooltipContent>

@@ -1,9 +1,42 @@
-import React, { useCallback, useRef, useEffect } from 'react'
-import { Rnd } from 'react-rnd'
+import React, { useCallback, useRef, useEffect, useState } from 'react'
 import { useCanvas, GRID_SIZE, PRODUCT_DESIGN_AREAS } from './CanvasContext'
+import type { CanvasElement } from './CanvasContext'
+import ElementToolbar from './ElementToolbar'
 
 // PRODUCT_DESIGN_AREAS dan birinchi templateni olish
 const CHEGARA = PRODUCT_DESIGN_AREAS[0]
+const SNAP_THRESHOLD = 8
+
+type HandleType = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+
+interface DragState {
+  elementId: string
+  startMouseX: number
+  startMouseY: number
+  startElX: number
+  startElY: number
+}
+
+interface ResizeState {
+  elementId: string
+  handle: HandleType
+  startMouseX: number
+  startMouseY: number
+  startElX: number
+  startElY: number
+  startWidth: number
+  startHeight: number
+  aspectRatio: number
+}
+
+interface RotateState {
+  elementId: string
+  startMouseX: number
+  startMouseY: number
+  centerX: number
+  centerY: number
+  startRotation: number
+}
 
 const MainCanvas = () => {
   const {
@@ -22,34 +55,303 @@ const MainCanvas = () => {
     bringToFront,
     snapBackIfOutside,
     snapToGridValue,
-    isPartiallyVisible
+    isPartiallyVisible,
+    designArea
   } = useCanvas()
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const designAreaRef = useRef<HTMLDivElement>(null)
+  const interactiveLayerRef = useRef<HTMLDivElement>(null)
+  
+  const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [isRotating, setIsRotating] = useState(false)
+  const [showCenterGuide, setShowCenterGuide] = useState<{ horizontal: boolean; vertical: boolean }>({ horizontal: false, vertical: false })
+  
+  const dragStateRef = useRef<DragState | null>(null)
+  const resizeStateRef = useRef<ResizeState | null>(null)
+  const rotateStateRef = useRef<RotateState | null>(null)
 
-  const handleDragStop = useCallback((id: string, d: { x: number, y: number }) => {
-    const element = elements.find(el => el.id === id)
-    if (!element) return
+  // Get design area center
+  const getDesignAreaCenter = useCallback(() => {
+    return {
+      x: designArea.width / 2,
+      y: designArea.height / 2
+    }
+  }, [designArea])
 
-    const newX = snapToGridValue(d.x)
-    const newY = snapToGridValue(d.y)
-    const snapped = snapBackIfOutside(newX, newY, element.width, element.height)
+  // Check if element is centered and snap
+  const checkCenterSnap = useCallback((element: CanvasElement, newX: number, newY: number) => {
+    const center = getDesignAreaCenter()
+    const elCenterX = newX + element.width / 2
+    const elCenterY = newY + element.height / 2
 
-    updateElementWithHistory(id, { x: snapped.x, y: snapped.y })
-    setIsOutOfBounds(false)
-  }, [elements, snapToGridValue, snapBackIfOutside, updateElementWithHistory, setIsOutOfBounds])
+    const isHorizontalCenter = Math.abs(elCenterX - center.x) < SNAP_THRESHOLD
+    const isVerticalCenter = Math.abs(elCenterY - center.y) < SNAP_THRESHOLD
 
-  const handleDrag = useCallback((id: string, d: { x: number, y: number }) => {
-    const element = elements.find(el => el.id === id)
-    if (!element) return
+    let snappedX = newX
+    let snappedY = newY
 
-    // Update element position in real-time during drag
-    updateElement(id, { x: d.x, y: d.y })
+    if (isHorizontalCenter) {
+      snappedX = center.x - element.width / 2
+    }
+    if (isVerticalCenter) {
+      snappedY = center.y - element.height / 2
+    }
 
-    const visible = isPartiallyVisible(d.x, d.y, element.width, element.height)
-    setIsOutOfBounds(!visible)
-  }, [elements, isPartiallyVisible, setIsOutOfBounds, updateElement])
+    return {
+      x: snappedX,
+      y: snappedY,
+      showHorizontal: isHorizontalCenter,
+      showVertical: isVerticalCenter
+    }
+  }, [getDesignAreaCenter])
+
+  // Get mouse position relative to interactive layer
+  const getRelativeMousePos = useCallback((e: MouseEvent | React.MouseEvent) => {
+    if (!interactiveLayerRef.current) return { x: 0, y: 0 }
+    const rect = interactiveLayerRef.current.getBoundingClientRect()
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    }
+  }, [])
+
+  // Handle element drag start
+  const handleDragStart = useCallback((e: React.MouseEvent, elementId: string) => {
+    e.stopPropagation()
+    const element = elements.find(el => el.id === elementId)
+    if (!element || element.locked) return
+
+    const pos = getRelativeMousePos(e)
+    dragStateRef.current = {
+      elementId,
+      startMouseX: pos.x,
+      startMouseY: pos.y,
+      startElX: element.x,
+      startElY: element.y
+    }
+    setIsDragging(true)
+    setSelectedElement(elementId)
+    bringToFront(elementId)
+  }, [elements, getRelativeMousePos, setSelectedElement, bringToFront])
+
+  // Handle resize start
+  const handleResizeStart = useCallback((e: React.MouseEvent, elementId: string, handle: HandleType) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const element = elements.find(el => el.id === elementId)
+    if (!element || element.locked) return
+
+    const pos = getRelativeMousePos(e)
+    resizeStateRef.current = {
+      elementId,
+      handle,
+      startMouseX: pos.x,
+      startMouseY: pos.y,
+      startElX: element.x,
+      startElY: element.y,
+      startWidth: element.width,
+      startHeight: element.height,
+      aspectRatio: element.aspectRatio || element.width / element.height
+    }
+    setIsResizing(true)
+  }, [elements, getRelativeMousePos])
+
+  // Handle rotate start
+  const handleRotateStart = useCallback((e: React.MouseEvent, elementId: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const element = elements.find(el => el.id === elementId)
+    if (!element || element.locked) return
+
+    const pos = getRelativeMousePos(e)
+    const centerX = element.x + element.width / 2
+    const centerY = element.y + element.height / 2
+    
+    rotateStateRef.current = {
+      elementId,
+      startMouseX: pos.x,
+      startMouseY: pos.y,
+      centerX,
+      centerY,
+      startRotation: element.rotation || 0
+    }
+    setIsRotating(true)
+  }, [elements, getRelativeMousePos])
+
+  // Mouse move handler
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const pos = getRelativeMousePos(e)
+
+      // Handle dragging
+      if (isDragging && dragStateRef.current) {
+        const { elementId, startMouseX, startMouseY, startElX, startElY } = dragStateRef.current
+        const element = elements.find(el => el.id === elementId)
+        if (!element) return
+
+        const deltaX = pos.x - startMouseX
+        const deltaY = pos.y - startMouseY
+        let newX = startElX + deltaX
+        let newY = startElY + deltaY
+
+        // Apply grid snap
+        newX = snapToGridValue(newX)
+        newY = snapToGridValue(newY)
+
+        // Check center snap
+        const centerSnap = checkCenterSnap(element, newX, newY)
+        newX = centerSnap.x
+        newY = centerSnap.y
+        setShowCenterGuide({ horizontal: centerSnap.showHorizontal, vertical: centerSnap.showVertical })
+
+        updateElement(elementId, { x: newX, y: newY })
+
+        const visible = isPartiallyVisible(newX, newY, element.width, element.height)
+        setIsOutOfBounds(!visible)
+      }
+
+      // Handle resizing
+      if (isResizing && resizeStateRef.current) {
+        const { elementId, handle, startMouseX, startMouseY, startElX, startElY, startWidth, startHeight, aspectRatio } = resizeStateRef.current
+        const element = elements.find(el => el.id === elementId)
+        if (!element) return
+
+        const deltaX = pos.x - startMouseX
+        const deltaY = pos.y - startMouseY
+
+        let newWidth = startWidth
+        let newHeight = startHeight
+        let newX = startElX
+        let newY = startElY
+
+        // Calculate new dimensions based on handle
+        switch (handle) {
+          case 'se':
+            newWidth = Math.max(20, startWidth + deltaX)
+            newHeight = newWidth / aspectRatio
+            break
+          case 'sw':
+            newWidth = Math.max(20, startWidth - deltaX)
+            newHeight = newWidth / aspectRatio
+            newX = startElX + startWidth - newWidth
+            break
+          case 'ne':
+            newWidth = Math.max(20, startWidth + deltaX)
+            newHeight = newWidth / aspectRatio
+            newY = startElY + startHeight - newHeight
+            break
+          case 'nw':
+            newWidth = Math.max(20, startWidth - deltaX)
+            newHeight = newWidth / aspectRatio
+            newX = startElX + startWidth - newWidth
+            newY = startElY + startHeight - newHeight
+            break
+          case 'e':
+            newWidth = Math.max(20, startWidth + deltaX)
+            newHeight = newWidth / aspectRatio
+            newY = startElY + (startHeight - newHeight) / 2
+            break
+          case 'w':
+            newWidth = Math.max(20, startWidth - deltaX)
+            newHeight = newWidth / aspectRatio
+            newX = startElX + startWidth - newWidth
+            newY = startElY + (startHeight - newHeight) / 2
+            break
+          case 'n':
+            newHeight = Math.max(20, startHeight - deltaY)
+            newWidth = newHeight * aspectRatio
+            newX = startElX + (startWidth - newWidth) / 2
+            newY = startElY + startHeight - newHeight
+            break
+          case 's':
+            newHeight = Math.max(20, startHeight + deltaY)
+            newWidth = newHeight * aspectRatio
+            newX = startElX + (startWidth - newWidth) / 2
+            break
+        }
+
+        updateElement(elementId, { x: newX, y: newY, width: newWidth, height: newHeight })
+
+        const visible = isPartiallyVisible(newX, newY, newWidth, newHeight)
+        setIsOutOfBounds(!visible)
+      }
+
+      // Handle rotating
+      if (isRotating && rotateStateRef.current) {
+        const { elementId, centerX, centerY, startRotation } = rotateStateRef.current
+        
+        const angle = Math.atan2(pos.y - centerY, pos.x - centerX) * (180 / Math.PI)
+        const startAngle = Math.atan2(rotateStateRef.current.startMouseY - centerY, rotateStateRef.current.startMouseX - centerX) * (180 / Math.PI)
+        let newRotation = startRotation + (angle - startAngle)
+        
+        // Snap to 0, 90, 180, 270 degrees
+        const snapAngles = [0, 90, 180, 270, 360, -90, -180, -270]
+        for (const snapAngle of snapAngles) {
+          if (Math.abs(newRotation - snapAngle) < 5) {
+            newRotation = snapAngle
+            break
+          }
+        }
+
+        updateElement(elementId, { rotation: newRotation })
+      }
+    }
+
+    const handleMouseUp = () => {
+      if (isDragging && dragStateRef.current) {
+        const { elementId } = dragStateRef.current
+        const element = elements.find(el => el.id === elementId)
+        if (element) {
+          const snapped = snapBackIfOutside(element.x, element.y, element.width, element.height)
+          updateElementWithHistory(elementId, { x: snapped.x, y: snapped.y })
+        }
+        dragStateRef.current = null
+        setIsDragging(false)
+        setShowCenterGuide({ horizontal: false, vertical: false })
+        setIsOutOfBounds(false)
+      }
+
+      if (isResizing && resizeStateRef.current) {
+        const { elementId } = resizeStateRef.current
+        const element = elements.find(el => el.id === elementId)
+        if (element) {
+          const snapped = snapBackIfOutside(element.x, element.y, element.width, element.height)
+          updateElementWithHistory(elementId, {
+            x: snapped.x,
+            y: snapped.y,
+            width: element.width,
+            height: element.height,
+            aspectRatio: element.width / element.height
+          })
+        }
+        resizeStateRef.current = null
+        setIsResizing(false)
+        setIsOutOfBounds(false)
+      }
+
+      if (isRotating && rotateStateRef.current) {
+        const { elementId } = rotateStateRef.current
+        const element = elements.find(el => el.id === elementId)
+        if (element) {
+          updateElementWithHistory(elementId, { rotation: element.rotation })
+        }
+        rotateStateRef.current = null
+        setIsRotating(false)
+      }
+    }
+
+    if (isDragging || isResizing || isRotating) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, isResizing, isRotating, elements, getRelativeMousePos, snapToGridValue, checkCenterSnap, updateElement, isPartiallyVisible, setIsOutOfBounds, snapBackIfOutside, updateElementWithHistory])
 
   // Keyboard navigation
   useEffect(() => {
@@ -116,11 +418,8 @@ const MainCanvas = () => {
     const handleDrop = async (e: DragEvent) => {
       e.preventDefault()
       const imageUrl = e.dataTransfer?.getData('text/plain')
-      if (imageUrl && canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect()
-        const x = e.clientX - rect.left - 80
-        const y = e.clientY - rect.top - 40
-        await addElement('image', imageUrl, { x, y })
+      if (imageUrl) {
+        await addElement('image', imageUrl)
       }
     }
 
@@ -148,39 +447,129 @@ const MainCanvas = () => {
     }
   }, [setSelectedElement])
 
+  // Render resize handles
+  const renderHandles = (element: CanvasElement) => {
+    if (selectedElement !== element.id || element.locked) return null
+
+    const handleSize = 10
+    const handleStyle = {
+      width: handleSize,
+      height: handleSize,
+      backgroundColor: '#3b82f6',
+      border: '2px solid white',
+      borderRadius: '2px',
+      position: 'absolute' as const,
+      zIndex: 1000,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+    }
+
+    const handles: { type: HandleType; style: React.CSSProperties; cursor: string }[] = [
+      { type: 'nw', style: { top: -handleSize/2, left: -handleSize/2 }, cursor: 'nwse-resize' },
+      { type: 'n', style: { top: -handleSize/2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
+      { type: 'ne', style: { top: -handleSize/2, right: -handleSize/2 }, cursor: 'nesw-resize' },
+      { type: 'e', style: { top: '50%', right: -handleSize/2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
+      { type: 'se', style: { bottom: -handleSize/2, right: -handleSize/2 }, cursor: 'nwse-resize' },
+      { type: 's', style: { bottom: -handleSize/2, left: '50%', transform: 'translateX(-50%)' }, cursor: 'ns-resize' },
+      { type: 'sw', style: { bottom: -handleSize/2, left: -handleSize/2 }, cursor: 'nesw-resize' },
+      { type: 'w', style: { top: '50%', left: -handleSize/2, transform: 'translateY(-50%)' }, cursor: 'ew-resize' },
+    ]
+
+    return (
+      <>
+        {handles.map(({ type, style, cursor }) => (
+          <div
+            key={type}
+            style={{ ...handleStyle, ...style, cursor }}
+            onMouseDown={(e) => handleResizeStart(e, element.id, type)}
+          />
+        ))}
+        {/* Rotate handle */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -35,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            cursor: 'grab'
+          }}
+          onMouseDown={(e) => handleRotateStart(e, element.id)}
+        >
+          <div style={{ width: 1, height: 20, backgroundColor: '#3b82f6' }} />
+          <div
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              backgroundColor: '#3b82f6',
+              border: '2px solid white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
-    <div className="bg-gray-50 flex flex-col justify-center items-center relative">
+    <div className="bg-gray-50 flex flex-col justify-center items-center relative h-full w-full">
       {/* Main Canvas */}
       <div
         ref={canvasRef}
         className="flex-1 relative overflow-hidden bg-white"
-        style={{ minHeight: '600px', minWidth: '600px' }}
+        style={{ height: '100%', width: '100%' }}
         data-canvas
         onClick={handleCanvasClick}
       >
         {/* T-shirt Template */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative">
-            <img src="./download.png" alt="" className='w-[600px] h-[600px]' />
+            <img src={PRODUCT_DESIGN_AREAS[0]?.productImage || ''} alt="Product template" className='w-[600px] h-[600px]' />
           </div>
         </div>
 
-        {/* Design Area with clip path for overflow hidden */}
+        {/* Design Area with SVG border */}
         <div
           ref={designAreaRef}
-          className={`absolute transition-colors duration-200 ${isOutOfBounds
-            ? 'border-2 border-red-500 border-dashed'
-            : 'border-2 border-dashed border-black/30'
-            }`}
+          className="absolute pointer-events-none"
           style={{
-            left: CHEGARA.x,
-            top: CHEGARA.y,
+            left: `calc(50% + ${CHEGARA.x}px)`,
+            top: `calc(50% + ${CHEGARA.y}px)`,
+            transform: 'translate(-50%, -50%)',
             width: CHEGARA.width,
             height: CHEGARA.height,
             overflow: 'hidden',
-            borderRadius: '4px'
+            borderRadius: `${CHEGARA.borderRadius}px`
           }}
         >
+          {/* SVG Border - smooth dashed line */}
+          <svg
+            className={`absolute inset-0 w-full h-full transition-all duration-300 ${isDragging || isResizing ? 'opacity-100' : selectedElement ? 'opacity-60' : 'opacity-25'}`}
+            style={{ pointerEvents: 'none' }}
+          >
+            <rect
+              x="1"
+              y="1"
+              width={CHEGARA.width - 2}
+              height={CHEGARA.height - 2}
+              fill="none"
+              stroke={isOutOfBounds ? '#ef4444' : isDragging || isResizing ? '#000000' : CHEGARA.borderColor}
+              strokeWidth={1}
+              strokeDasharray="8 4"
+              strokeLinecap="round"
+              rx={CHEGARA.borderRadius}
+              ry={CHEGARA.borderRadius}
+            />
+          </svg>
           {/* Grid overlay when snap is enabled */}
           {snapToGrid && (
             <div
@@ -196,16 +585,60 @@ const MainCanvas = () => {
           )}
         </div>
 
+        {/* Center guide lines */}
+        {(showCenterGuide.horizontal || showCenterGuide.vertical) && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: `calc(50% + ${CHEGARA.x}px)`,
+              top: `calc(50% + ${CHEGARA.y}px)`,
+              transform: 'translate(-50%, -50%)',
+              width: CHEGARA.width,
+              height: CHEGARA.height,
+              zIndex: 25
+            }}
+          >
+            {showCenterGuide.vertical && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: 0,
+                  width: 2,
+                  height: '100%',
+                  backgroundColor: '#ef4444',
+                  transform: 'translateX(-50%)'
+                }}
+              />
+            )}
+            {showCenterGuide.horizontal && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: 0,
+                  width: '100%',
+                  height: 2,
+                  backgroundColor: '#ef4444',
+                  transform: 'translateY(-50%)'
+                }}
+              />
+            )}
+          </div>
+        )}
+
         {/* Clipped content area - elements are clipped to design area */}
         <div
           className="absolute pointer-events-none"
           style={{
-            left: CHEGARA.x,
-            top: CHEGARA.y,
+            left: `calc(50% + ${CHEGARA.x}px)`,
+            top: `calc(50% + ${CHEGARA.y}px)`,
+            transform: 'translate(-50%, -50%)',
             width: CHEGARA.width,
             height: CHEGARA.height,
             overflow: 'hidden',
-            zIndex: 10
+            zIndex: 10,
+            borderRadius: `${CHEGARA.borderRadius}px`
           }}
         >
           {elements
@@ -215,10 +648,12 @@ const MainCanvas = () => {
                 key={`clipped-${element.id}`}
                 className="absolute pointer-events-none"
                 style={{
-                  left: element.x - CHEGARA.x,
-                  top: element.y - CHEGARA.y,
+                  left: element.x,
+                  top: element.y,
                   width: element.width,
-                  height: element.height
+                  height: element.height,
+                  transform: `rotate(${element.rotation || 0}deg)`,
+                  transformOrigin: 'center center'
                 }}
               >
                 {element.type === 'image' ? (
@@ -240,93 +675,63 @@ const MainCanvas = () => {
             ))}
         </div>
 
-        {/* Canvas Elements - Interactive layer (transparent, only for interaction) */}
-        {elements
-          .sort((a, b) => a.zIndex - b.zIndex)
-          .map(element => (
-            <Rnd
-              key={element.id}
-              size={{ width: element.width, height: element.height }}
-              position={{ x: element.x, y: element.y }}
-              onDrag={(_e, d) => handleDrag(element.id, d)}
-              onDragStop={(_e, d) => handleDragStop(element.id, d)}
-              minWidth={20}
-              minHeight={20}
-              disableDragging={element.locked}
-              enableResizing={!element.locked ? {
-                bottomRight: true,
-                bottomLeft: true,
-                topRight: true,
-                topLeft: true,
-                bottom: false,
-                top: false,
-                left: false,
-                right: false
-              } : false}
-              lockAspectRatio={true}
-              className={`rnd-element ${selectedElement === element.id
-                ? isOutOfBounds ? 'ring-2 ring-red-500 show-handles' : 'ring-2 ring-blue-500 show-handles'
-                : 'hover:ring-2 hover:ring-blue-300'
-                } ${element.locked ? 'opacity-70' : ''} cursor-move`}
-              style={{ zIndex: element.zIndex + 100 }}
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation()
-                setSelectedElement(element.id)
-                bringToFront(element.id)
-              }}
-
-              onResize={(_e, _direction, ref, _delta, position) => {
-                const newWidth = ref.offsetWidth
-                const newHeight = ref.offsetHeight
-
-                // Update element position and size in real-time
-                updateElement(element.id, {
-                  width: newWidth,
-                  height: newHeight,
-                  x: position.x,
-                  y: position.y
-                })
-
-                // Check if outside design area
-                const visible = isPartiallyVisible(position.x, position.y, newWidth, newHeight)
-                setIsOutOfBounds(!visible)
-              }}
-
-              onResizeStop={(_e, _direction, ref, _delta, position) => {
-                const newWidth = ref.offsetWidth
-                const newHeight = ref.offsetHeight
-                const snapped = snapBackIfOutside(position.x, position.y, newWidth, newHeight)
-
-                updateElementWithHistory(element.id, {
-                  width: newWidth,
-                  height: newHeight,
-                  x: snapped.x,
-                  y: snapped.y,
-                  aspectRatio: newWidth / newHeight
-                })
-                setIsOutOfBounds(false)
-              }}
-
-              resizeHandleComponent={{
-                topLeft: <div className="resize-handle resize-handle-nwse" />,
-                topRight: <div className="resize-handle resize-handle-nesw" />,
-                bottomLeft: <div className="resize-handle resize-handle-nesw" />,
-                bottomRight: <div className="resize-handle resize-handle-nwse" />
-              }}
-            >
-              {/* Delete button - shows on hover */}
-              <button
-                className="delete-btn absolute -top-2.5 -right-2.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md transition-all z-50"
+        {/* Canvas Elements - Interactive layer */}
+        <div
+          ref={interactiveLayerRef}
+          className="absolute"
+          style={{
+            left: `calc(50% + ${CHEGARA.x}px)`,
+            top: `calc(50% + ${CHEGARA.y}px)`,
+            transform: 'translate(-50%, -50%)',
+            width: CHEGARA.width,
+            height: CHEGARA.height,
+            zIndex: 20,
+            borderRadius: `${CHEGARA.borderRadius}px`
+          }}
+        >
+          {elements
+            .sort((a, b) => a.zIndex - b.zIndex)
+            .map(element => (
+              <div
+                key={element.id}
+                className={`absolute cursor-move ${
+                  selectedElement === element.id
+                    ? isOutOfBounds ? 'ring-2 ring-red-500' : 'ring-2 ring-blue-500'
+                    : 'hover:ring-2 hover:ring-blue-300'
+                } ${element.locked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                style={{
+                  left: element.x,
+                  top: element.y,
+                  width: element.width,
+                  height: element.height,
+                  zIndex: element.zIndex + 100,
+                  transform: `rotate(${element.rotation || 0}deg)`,
+                  transformOrigin: 'center center'
+                }}
+                onMouseDown={(e) => handleDragStart(e, element.id)}
                 onClick={(e) => {
                   e.stopPropagation()
-                  deleteElement(element.id)
+                  setSelectedElement(element.id)
+                  bringToFront(element.id)
                 }}
-                title="O'chirish"
               >
-                ✕
-              </button>
-            </Rnd>
-          ))}
+                {/* Transparent overlay for interaction */}
+                <div className="w-full h-full" />
+                
+                {/* Resize and rotate handles */}
+                {renderHandles(element)}
+
+                {/* Element Toolbar - shows above selected element */}
+                {selectedElement === element.id && !isDragging && !isResizing && !isRotating && (
+                  <ElementToolbar
+                    element={element}
+                    position={{ x: element.width / 2, y: -50 }}
+                  />
+                )}
+              </div>
+            ))}
+        </div>
+
         {/* Empty State */}
         {elements.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
