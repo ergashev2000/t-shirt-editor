@@ -13,8 +13,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   RefreshCw,
-  FlipHorizontal,
-  FlipVertical,
   Lock,
   Unlock,
   Trash2,
@@ -44,8 +42,6 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
     deleteElement,
     updateElementWithHistory,
     duplicateElement,
-    flipHorizontal,
-    flipVertical,
     toggleLock,
     centerElement,
     elements,
@@ -67,7 +63,21 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
       const reader = new FileReader()
       reader.onload = (event) => {
         const newContent = event.target?.result as string
-        updateElementWithHistory(element.id, { content: newContent })
+
+        // Yangi rasmning o'lchamlarini olish
+        const img = new Image()
+        img.onload = () => {
+          const newAspectRatio = img.width / img.height
+          // Eski width saqlanadi, yangi height aspect ratio asosida hisoblanadi
+          const newHeight = element.width / newAspectRatio
+
+          updateElementWithHistory(element.id, {
+            content: newContent,
+            height: newHeight,
+            aspectRatio: newAspectRatio
+          })
+        }
+        img.src = newContent
       }
       reader.readAsDataURL(file)
     }
@@ -172,28 +182,6 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
             <Separator orientation="vertical" className="h-5" />
           </>
         )}
-
-        {/* Flip Horizontal */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="h-8 w-8 text-gray-700 hover:text-gray-900"
-          onClick={flipHorizontal}
-          title="Gorizontal aylantirish"
-        >
-          <FlipHorizontal className="h-4 w-4" />
-        </Button>
-
-        {/* Flip Vertical */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="h-8 w-8 text-gray-700 hover:text-gray-900"
-          onClick={flipVertical}
-          title="Vertikal aylantirish"
-        >
-          <FlipVertical className="h-4 w-4" />
-        </Button>
 
         <Separator orientation="vertical" className="h-5" />
 
