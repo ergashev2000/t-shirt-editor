@@ -3,6 +3,7 @@ import { useCanvas, GRID_SIZE, PRODUCT_DESIGN_AREAS } from './CanvasContext'
 import type { CanvasElement } from './CanvasContext'
 import ElementToolbar from './ElementToolbar'
 import CropOverlay from './CropOverlay'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // PRODUCT_DESIGN_AREAS dan birinchi templateni olish
 const CHEGARA = PRODUCT_DESIGN_AREAS[0]
@@ -59,7 +60,8 @@ const MainCanvas = () => {
     isPartiallyVisible,
     designArea,
     isCropping,
-    cancelCropping
+    cancelCropping,
+    removingBgElementId
   } = useCanvas()
 
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -126,7 +128,7 @@ const MainCanvas = () => {
   const handleDragStart = useCallback((e: React.MouseEvent, elementId: string) => {
     e.stopPropagation()
     const element = elements.find(el => el.id === elementId)
-    if (!element || element.locked) return
+    if (!element || element.locked || removingBgElementId === elementId) return
 
     const pos = getRelativeMousePos(e)
     dragStateRef.current = {
@@ -139,14 +141,14 @@ const MainCanvas = () => {
     setIsDragging(true)
     setSelectedElement(elementId)
     bringToFront(elementId)
-  }, [elements, getRelativeMousePos, setSelectedElement, bringToFront])
+  }, [elements, getRelativeMousePos, setSelectedElement, bringToFront, removingBgElementId])
 
   // Handle resize start
   const handleResizeStart = useCallback((e: React.MouseEvent, elementId: string, handle: HandleType) => {
     e.stopPropagation()
     e.preventDefault()
     const element = elements.find(el => el.id === elementId)
-    if (!element || element.locked) return
+    if (!element || element.locked || removingBgElementId === elementId) return
 
     const pos = getRelativeMousePos(e)
     resizeStateRef.current = {
@@ -162,14 +164,14 @@ const MainCanvas = () => {
     }
     setIsResizing(true)
     setActiveHandle(handle)
-  }, [elements, getRelativeMousePos])
+  }, [elements, getRelativeMousePos, removingBgElementId])
 
   // Handle rotate start
   const handleRotateStart = useCallback((e: React.MouseEvent, elementId: string) => {
     e.stopPropagation()
     e.preventDefault()
     const element = elements.find(el => el.id === elementId)
-    if (!element || element.locked) return
+    if (!element || element.locked || removingBgElementId === elementId) return
 
     const pos = getRelativeMousePos(e)
     const centerX = element.x + element.width / 2
@@ -184,7 +186,7 @@ const MainCanvas = () => {
       startRotation: element.rotation || 0
     }
     setIsRotating(true)
-  }, [elements, getRelativeMousePos])
+  }, [elements, getRelativeMousePos, removingBgElementId])
 
   // Mouse move handler
   useEffect(() => {
@@ -400,6 +402,8 @@ const MainCanvas = () => {
         case 'Delete':
         case 'Backspace':
           e.preventDefault()
+          // Prevent deleting while bg removal in progress
+          if (removingBgElementId === selectedElement) return
           deleteElement(selectedElement)
           return
         case 'z':
@@ -426,7 +430,7 @@ const MainCanvas = () => {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedElement, elements, snapToGridValue, snapBackIfOutside, updateElementWithHistory, deleteElement, undo, redo])
+  }, [selectedElement, elements, snapToGridValue, snapBackIfOutside, updateElementWithHistory, deleteElement, undo, redo, removingBgElementId])
 
   // Listen for image drops from sidebar
   useEffect(() => {
@@ -825,10 +829,10 @@ const MainCanvas = () => {
                   transform: `rotate(${element.rotation || 0}deg)`,
                   transformOrigin: 'center center'
                 }}
-                onMouseDown={(e) => !isCropping && handleDragStart(e, element.id)}
+                onMouseDown={(e) => !isCropping && removingBgElementId !== element.id && handleDragStart(e, element.id)}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (!isCropping) {
+                  if (!isCropping && removingBgElementId !== element.id) {
                     setSelectedElement(element.id)
                     bringToFront(element.id)
                   }
@@ -837,8 +841,16 @@ const MainCanvas = () => {
                 {/* Transparent overlay for interaction */}
                 <div className="w-full h-full" />
 
-                {/* Resize and rotate handles - hide during crop */}
-                {!isCropping && renderHandles(element)}
+                {/* Skeleton effect during background removal */}
+                {removingBgElementId === element.id && (
+                  <Skeleton 
+                    className="absolute inset-0 pointer-events-none rounded opacity-30"
+                    style={{ zIndex: 1001 }}
+                  />
+                )}
+
+                {/* Resize and rotate handles - hide during crop or bg removal */}
+                {!isCropping && removingBgElementId !== element.id && renderHandles(element)}
 
                 {/* Crop overlay - show when cropping this element */}
                 {isCropping && selectedElement === element.id && element.type === 'image' && (

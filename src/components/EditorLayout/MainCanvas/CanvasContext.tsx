@@ -144,6 +144,7 @@ interface CanvasContextType {
   toggleLock: () => void
   removeBackground: () => Promise<void>
   isRemovingBg: boolean
+  removingBgElementId: string | null
 
   // Cropping
   isCropping: boolean
@@ -200,6 +201,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const [canRedo, setCanRedo] = useState(false)
   const [designArea, setDesignArea] = useState<DesignAreaConfig>(PRODUCT_DESIGN_AREAS[0])
   const [isRemovingBg, setIsRemovingBg] = useState(false)
+  const [removingBgElementId, setRemovingBgElementId] = useState<string | null>(null)
   const [isCropping, setIsCropping] = useState(false)
   const [cropBox, setCropBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
@@ -386,6 +388,9 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   }, [saveToHistory, selectedElement])
 
   const deleteElement = useCallback((id: string) => {
+    // Prevent deleting while bg removal in progress
+    if (removingBgElementId === id) return
+    
     setElements(prev => {
       const newElements = prev.filter(el => el.id !== id)
       saveToHistory(newElements, null)
@@ -394,7 +399,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     if (selectedElement === id) {
       setSelectedElement(null)
     }
-  }, [selectedElement, saveToHistory])
+  }, [selectedElement, saveToHistory, removingBgElementId])
 
   const addElement = useCallback(async (type: 'image' | 'text', content: string, position?: { x: number; y: number }) => {
     let width = 200
@@ -533,27 +538,39 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   }, [selectedEl, updateElementWithHistory, designArea])
 
   const removeBackground = useCallback(async () => {
-    if (!selectedEl || selectedEl.type !== 'image') return
+    if (!selectedEl || selectedEl.type !== 'image' || isRemovingBg) return
 
+    const elementId = selectedEl.id
     setIsRemovingBg(true)
+    setRemovingBgElementId(elementId)
+    
     try {
-      const blob = await removeBg(selectedEl.content)
+      // Optimized settings to reduce browser strain
+      const blob = await removeBg(selectedEl.content, {
+        model: 'isnet_quint8',  // Use quantized model for faster/lighter processing
+        output: {
+          format: 'image/png',
+          quality: 0.8  // Slightly lower quality for performance
+        }
+      })
       const url = URL.createObjectURL(blob)
-      updateElementWithHistory(selectedEl.id, { content: url })
+      updateElementWithHistory(elementId, { content: url })
     } catch (error) {
       console.error('Background removal failed:', error)
     } finally {
       setIsRemovingBg(false)
+      setRemovingBgElementId(null)
     }
-  }, [selectedEl, updateElementWithHistory])
+  }, [selectedEl, updateElementWithHistory, isRemovingBg])
 
   // Cropping functions
   const startCropping = useCallback(() => {
-    if (!selectedEl || selectedEl.type !== 'image') return
+    // Prevent cropping while bg removal in progress
+    if (!selectedEl || selectedEl.type !== 'image' || removingBgElementId === selectedEl.id) return
     // Initialize crop box to full element size
     setCropBox({ x: 0, y: 0, width: selectedEl.width, height: selectedEl.height })
     setIsCropping(true)
-  }, [selectedEl])
+  }, [selectedEl, removingBgElementId])
 
   const cancelCropping = useCallback(() => {
     setIsCropping(false)
@@ -662,6 +679,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       toggleLock,
       removeBackground,
       isRemovingBg,
+      removingBgElementId,
       isCropping,
       cropBox,
       setCropBox,

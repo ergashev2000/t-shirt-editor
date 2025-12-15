@@ -49,9 +49,13 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
     setSelectedElement,
     removeBackground,
     isRemovingBg,
+    removingBgElementId,
     startCropping,
     isCropping,
   } = useCanvas()
+
+  // Check if this element is being processed for bg removal
+  const isElementProcessing = removingBgElementId === element.id
 
   const handleReplace = () => {
     fileInputRef.current?.click()
@@ -144,6 +148,7 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
               size="sm"
               className="h-8 px-2 gap-1.5 text-gray-700 hover:text-gray-900"
               onClick={handleReplace}
+              disabled={isElementProcessing}
             >
               <RefreshCw className="h-4 w-4" />
               <span className="text-xs">Replace</span>
@@ -174,6 +179,7 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
               size="sm"
               className={`h-8 px-2 gap-1.5 ${isCropping ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:text-gray-900'}`}
               onClick={startCropping}
+              disabled={isElementProcessing}
               title="Crop"
             >
               <Crop className="h-4 w-4" />
@@ -191,6 +197,7 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
           size="icon-sm"
           className={`h-8 w-8 ${element.locked ? 'text-blue-600' : 'text-gray-700 hover:text-gray-900'}`}
           onClick={toggleLock}
+          disabled={isElementProcessing}
           title={element.locked ? 'Qulfni ochish' : 'Qulflash'}
         >
           {element.locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
@@ -202,6 +209,7 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
           size="icon-sm"
           className="h-8 w-8 text-gray-700 hover:text-red-600"
           onClick={() => deleteElement(element.id)}
+          disabled={isElementProcessing}
           title="O'chirish"
         >
           <Trash2 className="h-4 w-4" />
