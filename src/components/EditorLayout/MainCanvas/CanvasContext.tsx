@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
 import { removeBackground as removeBg } from '@imgly/background-removal'
 
 export interface CanvasElement {
@@ -506,10 +506,11 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     try {
       // Optimized settings to reduce browser strain
       const blob = await removeBg(selectedEl.content, {
-        model: 'isnet_quint8',  // Use quantized model for faster/lighter processing
+        model: 'medium',  // Valid options: 'small' | 'medium'
+        publicPath: window.location.origin + '/',  // Local models from public folder
         output: {
           format: 'image/png',
-          quality: 1  // Slightly lower quality for performance
+          quality: 1
         }
       })
       const url = URL.createObjectURL(blob)
