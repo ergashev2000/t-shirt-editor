@@ -166,7 +166,7 @@ export default function TextBar() {
 
         {/* Color Picker */}
         <div className="mb-3">
-          <label className="text-xs text-gray-500 mb-2 block flex items-center gap-1">
+          <label className="text-xs text-gray-500 mb-2 flex items-center gap-1">
             <Palette className="w-3 h-3" />
             Rang tanlang
           </label>
