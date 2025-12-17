@@ -41,7 +41,7 @@ const SIDEBAR_MENU = [
 
 export default function LeftBar() {
   return (
-    <div className='w-(--leftbar-width) flex'>
+    <aside className='w-(--leftbar-width) flex'>
       <Tabs defaultValue="image" orientation='vertical' className='flex-row w-full gap-0 bg-[#f3f4f6]'>
         <div className='bg-[#f3f4f6] h-full'>
           <TabsList className="flex-col w-[76px] h-min space-y-2 shadow-none bg-none p-0 pl-1 py-3">
@@ -73,6 +73,6 @@ export default function LeftBar() {
           </TabsContent>
         </div>
       </Tabs>
-    </div>
+    </aside>
   )
 }

@@ -18,15 +18,14 @@ const fetchPictures = async (): Promise<PictureItem[]> => {
   }))
 }
 
-const distributeIntoColumns = (items: PictureItem[], columnCount: number) => {
-  const columns: PictureItem[][] = Array.from({ length: columnCount }, () => [])
-
-  items.forEach((item, index) => {
-    const columnIndex = index % columnCount
-    columns[columnIndex].push(item)
-  })
-
-  return columns
+const checkerboardStyle = {
+  backgroundImage: `linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
+                    linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), 
+                    linear-gradient(45deg, transparent 75%, #e0e0e0 75%), 
+                    linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)`,
+  backgroundSize: '16px 16px',
+  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+  backgroundColor: '#ffffff'
 }
 
 const ImageBar = () => {
@@ -63,35 +62,34 @@ const ImageBar = () => {
     )
   }
 
-  const columns = distributeIntoColumns(pictures, 2)
-
   return (
     <div className="h-full overflow-y-auto pl-3 pr-1 py-3">
-      <div className="grid grid-cols-2 gap-2">
-        {columns.map((column, columnIndex) => (
-          <div key={columnIndex} className="grid gap-2">
-            {column.map((picture) => (
-              <div key={picture.id} className="group cursor-pointer">
-                <img
-                  className="h-auto max-w-full rounded-lg transition-transform group-hover:scale-105"
-                  src={picture.url}
-                  alt={picture.name || 'Image'}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', picture.url)
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder-image.jpg'
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-      {pictures.length === 0 && (
+      {pictures.length === 0 ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-gray-500">No images found</div>
+        </div>
+      ) : (
+        <div style={{ columnCount: 2, columnGap: '8px' }}>
+          {pictures.map((picture) => (
+            <div 
+              key={picture.id} 
+              className="group cursor-pointer mb-2 break-inside-avoid"
+              style={{ ...checkerboardStyle, borderRadius: '8px', overflow: 'hidden' }}
+            >
+              <img
+                className="w-full h-auto block transition-transform group-hover:scale-105"
+                src={picture.url}
+                alt={picture.name || 'Image'}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', picture.url)
+                }}
+                onError={(e) => {
+                  e.currentTarget.src = '/placeholder-image.jpg'
+                }}
+              />
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -8,6 +8,16 @@ interface UploadedImage {
   file: File
 }
 
+const checkerboardStyle = {
+  backgroundImage: `linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
+                    linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), 
+                    linear-gradient(45deg, transparent 75%, #e0e0e0 75%), 
+                    linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)`,
+  backgroundSize: '16px 16px',
+  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+  backgroundColor: '#ffffff'
+}
+
 export default function UploadBar() {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -142,22 +152,23 @@ export default function UploadBar() {
       {/* Uploaded Images List */}
       <div className="flex-1 overflow-y-auto px-3 pb-3">
         {uploadedImages.length > 0 ? (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-700 mb-2 sticky top-0 bg-white py-2">
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-3 sticky top-0 bg-white py-2 z-10">
               Yuklangan rasmlar ({uploadedImages.length})
             </h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div style={{ columnCount: 2, columnGap: '8px' }}>
               {uploadedImages.map((image) => (
                 <div
                   key={image.id}
-                  className="group relative cursor-move rounded-lg overflow-hidden border border-gray-200 hover:border-violet-400 transition-colors"
+                  className="group relative cursor-move mb-2 break-inside-avoid rounded-lg overflow-hidden border border-gray-200 hover:border-violet-400 transition-all hover:shadow-md"
+                  style={checkerboardStyle}
                   draggable
                   onDragStart={(e) => handleImageDragStart(e, image.url)}
                 >
                   <img
                     src={image.url}
                     alt={image.name}
-                    className="w-full h-32 object-cover transition-transform group-hover:scale-105"
+                    className="w-full h-auto block transition-transform group-hover:scale-105"
                   />
                   {/* Remove button */}
                   <button
@@ -165,11 +176,15 @@ export default function UploadBar() {
                       e.stopPropagation()
                       handleRemoveImage(image.id)
                     }}
-                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    className="absolute top-1.5 right-1.5 p-1.5 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
                     title="O'chirish"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
+                  {/* Image name tooltip */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-xs text-white truncate">{image.name}</p>
+                  </div>
                 </div>
               ))}
             </div>

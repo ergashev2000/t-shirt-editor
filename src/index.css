@@ -120,7 +120,7 @@
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* High quality image rendering */
   img {
     image-rendering: -webkit-optimize-contrast;
@@ -128,7 +128,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
+
   /* Prevent image quality loss on transform */
   img[style*="transform"] {
     backface-visibility: hidden;

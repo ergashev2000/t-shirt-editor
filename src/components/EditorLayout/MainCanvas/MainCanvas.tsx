@@ -3,7 +3,7 @@ import { useCanvas, GRID_SIZE, PRODUCT_DESIGN_AREAS } from './CanvasContext'
 import type { CanvasElement } from './CanvasContext'
 import ElementToolbar from './ElementToolbar'
 import CropOverlay from './CropOverlay'
-import { Skeleton } from '@/components/ui/skeleton'
+import MagicBgRemovalOverlay from './MagicBgRemovalOverlay'
 
 // PRODUCT_DESIGN_AREAS dan birinchi templateni olish
 const CHEGARA = PRODUCT_DESIGN_AREAS[0]
@@ -61,7 +61,9 @@ const MainCanvas = () => {
     designArea,
     isCropping,
     cancelCropping,
-    removingBgElementId
+    removingBgElementId,
+    isBgRemovalCompleting,
+    selectedColor
   } = useCanvas()
 
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -630,7 +632,7 @@ const MainCanvas = () => {
       >
         {/* T-shirt Template */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="relative">
+          <div className="relative" style={{ backgroundColor: selectedColor.hex }}>
             <img src={designArea.productImage || ''} alt="Product template" className='w-[600px] h-[600px]' />
           </div>
         </div>
@@ -651,7 +653,7 @@ const MainCanvas = () => {
         >
           {/* SVG Border - smooth dashed line */}
           <svg
-            className={`absolute inset-0 w-full h-full transition-all duration-300 ${isDragging || isResizing ? 'opacity-100' : selectedElement ? 'opacity-60' : 'opacity-25'}`}
+            className={`absolute inset-0 w-full h-full transition-all duration-300 ${isDragging || isResizing ? 'opacity-100' : selectedElement ? 'opacity-60' : 'opacity-0'}`}
             style={{ pointerEvents: 'none' }}
           >
             <rect
@@ -702,7 +704,7 @@ const MainCanvas = () => {
                   position: 'absolute',
                   left: '50%',
                   top: 0,
-                  width: "1.5px",
+                  width: "2px",
                   height: '100%',
                   backgroundColor: '#ef4444',
                   transform: 'translateX(-50%)'
@@ -716,7 +718,7 @@ const MainCanvas = () => {
                   top: '50%',
                   left: 0,
                   width: '100%',
-                  height: "1.5px",
+                  height: "2px",
                   backgroundColor: '#ef4444',
                   transform: 'translateY(-50%)'
                 }}
@@ -740,6 +742,7 @@ const MainCanvas = () => {
           }}
         >
           {elements
+            .filter(el => !el.hidden)
             .sort((a, b) => a.zIndex - b.zIndex)
             .map(element => (
               <div
@@ -812,6 +815,7 @@ const MainCanvas = () => {
           }}
         >
           {elements
+            .filter(el => !el.hidden)
             .sort((a, b) => a.zIndex - b.zIndex)
             .map(element => (
               <div
@@ -841,13 +845,13 @@ const MainCanvas = () => {
                 {/* Transparent overlay for interaction */}
                 <div className="w-full h-full" />
 
-                {/* Skeleton effect during background removal */}
-                {removingBgElementId === element.id && (
-                  <Skeleton 
-                    className="absolute inset-0 pointer-events-none rounded opacity-30"
-                    style={{ zIndex: 1001 }}
-                  />
-                )}
+                {/* Magic effect during background removal */}
+                <MagicBgRemovalOverlay
+                  key={`magic-${element.id}-${removingBgElementId}`}
+                  isActive={removingBgElementId === element.id}
+                  isCompleting={isBgRemovalCompleting}
+                  bgColor={selectedColor.hex}
+                />
 
                 {/* Resize and rotate handles - hide during crop or bg removal */}
                 {!isCropping && removingBgElementId !== element.id && renderHandles(element)}

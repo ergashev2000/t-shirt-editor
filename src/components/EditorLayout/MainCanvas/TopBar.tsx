@@ -54,6 +54,9 @@ export default function TopBar() {
     centerElement,
     currentSide,
     setCurrentSide,
+    designArea,
+    selectedColor,
+    setSelectedColor,
   } = useCanvas()
 
   const hasSelection = !!selectedEl
@@ -63,28 +66,60 @@ export default function TopBar() {
       <div className="h-auto border-b border-gray-200">
         {/* Main Toolbar */}
         <div className="h-14 flex justify-between items-center w-full px-3">
-          {/* Left section - Front/Back Toggle */}
+          {/* Left section - Colors */}
           <div className="flex items-center gap-2">
-            {/* Front/Back Toggle */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-1">
-              <Button
-                variant={currentSide === 'front' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setCurrentSide('front')}
-                className="h-8 px-3 gap-1.5"
-              >
-                <Shirt size={16} />
-                <span className="text-xs">Old</span>
-              </Button>
-              <Button
-                variant={currentSide === 'back' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setCurrentSide('back')}
-                className="h-8 px-3 gap-1.5"
-              >
-                <Shirt size={16} className="rotate-180" />
-                <span className="text-xs">Orqa</span>
-              </Button>
+            {/* Color Picker */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500 mr-1">Rang:</span>
+              <div className="flex items-center gap-0.5">
+                {designArea.availableColors.slice(0, 8).map((color) => (
+                  <Tooltip key={color.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setSelectedColor(color)}
+                        className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                          selectedColor.id === color.id
+                            ? 'border-violet-500 ring-2 ring-violet-200'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={{ backgroundColor: color.hex }}
+                        title={color.name}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>{color.name}</TooltipContent>
+                  </Tooltip>
+                ))}
+                {designArea.availableColors.length > 8 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="w-6 h-6 rounded-full border-2 border-gray-300 bg-gradient-to-br from-red-400 via-yellow-400 to-blue-400 hover:border-gray-400 transition-all hover:scale-110 flex items-center justify-center text-xs font-bold text-white">
+                        +{designArea.availableColors.length - 8}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2">
+                      <div className="grid grid-cols-4 gap-1">
+                        {designArea.availableColors.slice(8).map((color) => (
+                          <Tooltip key={color.id}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setSelectedColor(color)}
+                                className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
+                                  selectedColor.id === color.id
+                                    ? 'border-violet-500 ring-2 ring-violet-200'
+                                    : 'border-gray-300 hover:border-gray-400'
+                                }`}
+                                style={{ backgroundColor: color.hex }}
+                                title={color.name}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>{color.name}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
             </div>
 
             <Separator orientation="vertical" className="h-8 mx-1" />
@@ -275,6 +310,27 @@ export default function TopBar() {
 
           {/* Right section - Undo/Redo/Grid */}
           <div className="flex items-center gap-1">
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <Button
+                variant={currentSide === 'front' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCurrentSide('front')}
+                className="h-8 px-3 gap-1.5"
+              >
+                <Shirt size={16} />
+                <span className="text-xs">Old</span>
+              </Button>
+              <Button
+                variant={currentSide === 'back' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCurrentSide('back')}
+                className="h-8 px-3 gap-1.5"
+              >
+                <Shirt size={16} className="rotate-180" />
+                <span className="text-xs">Orqa</span>
+              </Button>
+            </div>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

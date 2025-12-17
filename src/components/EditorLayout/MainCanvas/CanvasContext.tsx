@@ -15,6 +15,7 @@ export interface CanvasElement {
   flipV?: boolean
   aspectRatio?: number
   rotation?: number
+  hidden?: boolean
 }
 
 interface HistoryState {
@@ -25,6 +26,13 @@ interface HistoryState {
 // Design area configuration
 export const CANVAS_SIZE = 700
 export const GRID_SIZE = 10
+
+// Product color configuration
+export interface ProductColor {
+  id: string
+  name: string
+  hex: string
+}
 
 // Product design area configurations
 export interface DesignAreaConfig {
@@ -37,24 +45,49 @@ export interface DesignAreaConfig {
   productImage: string
   borderColor: string
   borderRadius: number
+  availableColors: ProductColor[]
 }
 
 // Product sides configuration
 export type ProductSide = 'front' | 'back'
 
-// eslint-disable-next-line react-refresh/only-export-components
+// T-shirt uchun mavjud ranglar (backenddan keladi keyinchalik)
+const TSHIRT_COLORS: ProductColor[] = [
+  { id: 'white', name: 'Oq', hex: 'rgb(234, 235, 235)' },
+  { id: 'black', name: 'Qora', hex: '#191919' },
+  { id: 'navy', name: 'To\'q ko\'k', hex: 'rgb(169, 206, 245)' },
+  { id: 'red', name: 'Qizil', hex: 'rgb(111, 27, 37)' },
+  { id: 'forest-green', name: 'Yashil', hex: '#228b22' }
+]
 
+const HOODIE_COLORS: ProductColor[] = [
+  { id: 'white', name: 'Oq', hex: '#FFFFFF' },
+  { id: 'black', name: 'Qora', hex: '#1a1a1a' },
+  { id: 'gray', name: 'Kulrang', hex: '#4b5563' },
+  { id: 'navy', name: 'To\'q ko\'k', hex: '#1e3a5f' },
+  { id: 'burgundy', name: 'Bordo', hex: '#722f37' },
+]
+
+const MUG_COLORS: ProductColor[] = [
+  { id: 'white', name: 'Oq', hex: '#FFFFFF' },
+  { id: 'black', name: 'Qora', hex: '#1a1a1a' },
+  { id: 'red', name: 'Qizil', hex: '#dc2626' },
+  { id: 'blue', name: 'Ko\'k', hex: '#2563eb' },
+]
+
+// eslint-disable-next-line react-refresh/only-export-components
 export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
   {
     id: 'tshirt-front',
     name: 'T-Shirt (Old)',
     x: 0,
-    y: -35,
+    y: 65,
     width: 220,
-    height: 350,
-    productImage: './images/tshirt-front.png',
-    borderColor: 'rgba(139, 69, 19, 0.3)',
-    borderRadius: 2
+    height: 330,
+    productImage: './images/iphone-17-max-l.png',
+    borderColor: 'red',
+    borderRadius: 2,
+    availableColors: TSHIRT_COLORS
   },
   {
     id: 'tshirt-back',
@@ -65,7 +98,8 @@ export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
     height: 350,
     productImage: './images/tshirt-back.png',
     borderColor: 'rgba(139, 69, 19, 0.3)',
-    borderRadius: 2
+    borderRadius: 2,
+    availableColors: TSHIRT_COLORS
   },
   {
     id: 'hoodie-front',
@@ -76,7 +110,8 @@ export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
     height: 240,
     productImage: './download.png',
     borderColor: 'rgba(100, 100, 100, 0.3)',
-    borderRadius: 8
+    borderRadius: 8,
+    availableColors: HOODIE_COLORS
   },
   {
     id: 'hoodie-back',
@@ -87,7 +122,8 @@ export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
     height: 280,
     productImage: './download.png',
     borderColor: 'rgba(100, 100, 100, 0.3)',
-    borderRadius: 8
+    borderRadius: 8,
+    availableColors: HOODIE_COLORS
   },
   {
     id: 'mug',
@@ -98,7 +134,8 @@ export const PRODUCT_DESIGN_AREAS: DesignAreaConfig[] = [
     height: 150,
     productImage: './download.png',
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 4
+    borderRadius: 4,
+    availableColors: MUG_COLORS
   }
 ]
 interface CanvasContextType {
@@ -121,6 +158,10 @@ interface CanvasContextType {
   designArea: DesignAreaConfig
   setDesignAreaById: (id: string) => void
   productDesignAreas: DesignAreaConfig[]
+
+  // Product color
+  selectedColor: ProductColor
+  setSelectedColor: (color: ProductColor) => void
 
   // Product side (front/back)
   currentSide: ProductSide
@@ -145,6 +186,8 @@ interface CanvasContextType {
   removeBackground: () => Promise<void>
   isRemovingBg: boolean
   removingBgElementId: string | null
+  bgRemovalProgress: number
+  isBgRemovalCompleting: boolean
 
   // Cropping
   isCropping: boolean
@@ -200,8 +243,11 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const [designArea, setDesignArea] = useState<DesignAreaConfig>(PRODUCT_DESIGN_AREAS[0])
+  const [selectedColor, setSelectedColor] = useState<ProductColor>(PRODUCT_DESIGN_AREAS[0].availableColors[0])
   const [isRemovingBg, setIsRemovingBg] = useState(false)
   const [removingBgElementId, setRemovingBgElementId] = useState<string | null>(null)
+  const [bgRemovalProgress, setBgRemovalProgress] = useState(0)
+  const [isBgRemovalCompleting, setIsBgRemovalCompleting] = useState(false)
   const [isCropping, setIsCropping] = useState(false)
   const [cropBox, setCropBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
@@ -349,7 +395,7 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
   const deleteElement = useCallback((id: string) => {
     // Prevent deleting while bg removal in progress
     if (removingBgElementId === id) return
-    
+
     setElements(prev => {
       const newElements = prev.filter(el => el.id !== id)
       saveToHistory(newElements, null)
@@ -502,24 +548,55 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     const elementId = selectedEl.id
     setIsRemovingBg(true)
     setRemovingBgElementId(elementId)
-    
+    setBgRemovalProgress(0)
+
+    // Track total progress across all downloads
+    const downloadProgress: Record<string, { current: number; total: number }> = {}
+
     try {
-      // Optimized settings to reduce browser strain
       const blob = await removeBg(selectedEl.content, {
-        model: 'medium',  // Valid options: 'small' | 'medium'
-        publicPath: window.location.origin + '/',  // Local models from public folder
+        model: 'medium',
+        publicPath: window.location.origin + '/',
         output: {
           format: 'image/png',
           quality: 1
+        },
+        progress: (key: string, current: number, total: number) => {
+          // Track each resource's download progress
+          downloadProgress[key] = { current, total }
+
+          // Calculate overall progress (0-80% for downloads, 80-100% for processing)
+          let totalCurrent = 0
+          let totalSize = 0
+          Object.values(downloadProgress).forEach(p => {
+            totalCurrent += p.current
+            totalSize += p.total
+          })
+
+          if (totalSize > 0) {
+            // Downloads take 0-80% of progress
+            const downloadPercent = Math.round((totalCurrent / totalSize) * 80)
+            setBgRemovalProgress(downloadPercent)
+          }
         }
       })
+
+      // Processing complete - trigger slide animation
+      setBgRemovalProgress(100)
+      setIsBgRemovalCompleting(true)
+
       const url = URL.createObjectURL(blob)
       updateElementWithHistory(elementId, { content: url })
+
+      // Wait for slide animation to complete before clearing (2s animation)
+      await new Promise(resolve => setTimeout(resolve, 2200))
     } catch (error) {
       console.error('Background removal failed:', error)
     } finally {
       setIsRemovingBg(false)
       setRemovingBgElementId(null)
+      setIsBgRemovalCompleting(false)
+      setBgRemovalProgress(0)
     }
   }, [selectedEl, updateElementWithHistory, isRemovingBg])
 
@@ -640,6 +717,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       removeBackground,
       isRemovingBg,
       removingBgElementId,
+      bgRemovalProgress,
+      isBgRemovalCompleting,
       isCropping,
       cropBox,
       setCropBox,
@@ -659,6 +738,8 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
       designArea,
       setDesignAreaById,
       productDesignAreas: PRODUCT_DESIGN_AREAS,
+      selectedColor,
+      setSelectedColor,
       currentSide,
       setCurrentSide
     }}>

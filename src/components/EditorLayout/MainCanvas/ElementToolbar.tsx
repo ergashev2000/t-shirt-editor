@@ -1,6 +1,5 @@
 import React, { useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -163,13 +162,10 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
               disabled={isRemovingBg}
               title="Background o'chirish"
             >
-              {isRemovingBg ? (
-                <div className="h-4 w-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-              ) : (
-                <Eraser className="h-4 w-4" />
-              )}
               <span>
-                {isRemovingBg ? 'Removing...' : 'Remove BG'}
+                {isRemovingBg ? 'Removing...' :
+                  <span className='flex items-center gap-1 text-xs'><Eraser className="h-4 w-4" /> Remove BG</span>
+                }
               </span>
             </Button>
 
@@ -184,12 +180,8 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
             >
               <Crop className="h-4 w-4" />
             </Button>
-
-            <Separator orientation="vertical" className="h-5" />
           </>
         )}
-
-        <Separator orientation="vertical" className="h-5" />
 
         {/* Lock/Unlock */}
         <Button
@@ -214,8 +206,6 @@ const ElementToolbar: React.FC<ElementToolbarProps> = ({ element, position }) =>
         >
           <Trash2 className="h-4 w-4" />
         </Button>
-
-        <Separator orientation="vertical" className="h-5" />
 
         {/* More options dropdown */}
         <DropdownMenu>
