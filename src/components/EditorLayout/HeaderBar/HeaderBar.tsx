@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react'
 import Logo from '/images/logo-light.png'
 
 export default function HeaderBar() {
@@ -8,7 +9,9 @@ export default function HeaderBar() {
           <img src={Logo} className='h-6' />
         </div>
         <div className='flex gap-4 items-center'>
-          <button className='px-4 rounded-md py-1 bg-white'>Back</button>
+          <button className='px-4 rounded-md py-1 bg-white'>
+            <ArrowLeft />
+          </button>
           <div>
             <span className='text-base font-medium text-white'>Snow Washed Oversized Cotton T-Shirt</span>
           </div>
